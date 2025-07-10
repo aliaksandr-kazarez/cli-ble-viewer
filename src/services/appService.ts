@@ -26,44 +26,53 @@ export function createAppService() {
   }
 
   function setupUI() {
-    inkUI.setDeviceSelectHandler(async (device: NobleDevice) => {
-      if (isConnecting) return;
-      
-      isConnecting = true;
-      inkUI.updateState({ 
-        selectedDevice: device, 
-        connectionStatus: 'connecting' 
-      });
-      
-      try {
-        await connectAndReadWeightData(device);
-      } catch (error) {
-        logger.error('Failed to connect and read data', { error: (error as Error).message });
-        inkUI.updateState({ 
-          connectionStatus: 'error',
-          isConnected: false 
-        });
-        isConnecting = false;
-      }
-    });
-
-    inkUI.setExitHandler(() => {
-      cleanup();
-      process.exit(0);
-    });
-
-    inkUI.setBatteryReadHandler(async () => {
-      try {
-        const batteryReading = await scaleConnection.readBattery();
-        if (batteryReading) {
-          inkUI.updateState({ batteryLevel: batteryReading.level });
-        }
-      } catch (error) {
-        logger.error('Failed to read battery', { error: (error as Error).message });
-      }
-    });
-
+    // Start the UI first so the global handlers are available
     inkUI.start();
+    
+    // Wait a bit for the UI to initialize, then set up handlers
+    setTimeout(() => {
+      inkUI.setDeviceSelectHandler(async (device: NobleDevice) => {
+        logger.info('Device selection handler called', { deviceName: device.advertisement.localName });
+        if (isConnecting) {
+          logger.info('Already connecting, ignoring device selection');
+          return;
+        }
+        
+        logger.info('Starting connection process');
+        isConnecting = true;
+        inkUI.updateState({ 
+          selectedDevice: device, 
+          connectionStatus: 'connecting' 
+        });
+        
+        try {
+          await connectAndReadWeightData(device);
+        } catch (error) {
+          logger.error('Failed to connect and read data', { error: (error as Error).message });
+          inkUI.updateState({ 
+            connectionStatus: 'error',
+            isConnected: false 
+          });
+          isConnecting = false;
+        }
+      });
+
+      inkUI.setExitHandler(() => {
+        cleanup();
+        process.exit(0);
+      });
+
+      inkUI.setBatteryReadHandler(async () => {
+        try {
+          const batteryReading = await scaleConnection.readBattery();
+          if (batteryReading) {
+            inkUI.updateState({ batteryLevel: batteryReading.level });
+          }
+        } catch (error) {
+          logger.error('Failed to read battery', { error: (error as Error).message });
+        }
+      });
+    }, 100); // Small delay to ensure UI is ready
   }
 
   async function startDiscovery() {

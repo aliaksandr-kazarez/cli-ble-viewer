@@ -3,6 +3,7 @@ import { render } from 'ink';
 import { App } from './components/App.js';
 import { NobleDevice } from '../types/ble.js';
 import { ScaleWeightReading } from '../scales/scaleConnectionService.js';
+import { logger } from '../utils/logger.js';
 
 export interface InkUIState {
   devices: NobleDevice[];
@@ -47,8 +48,11 @@ function InkApp() {
   return React.createElement(App, {
     devices: state.devices,
     onDeviceSelect: (device: NobleDevice) => {
+      logger.debug('onDeviceSelect called in InkApp', { deviceName: device.advertisement.localName, hasHandler: !!onDeviceSelect });
       if (onDeviceSelect) {
         onDeviceSelect(device);
+      } else {
+        logger.debug('No device select handler available');
       }
     },
     selectedDevice: state.selectedDevice,
@@ -90,8 +94,12 @@ export function createInkUI() {
   }
 
   function setDeviceSelectHandler(handler: (device: NobleDevice) => void) {
+    logger.debug('Setting device select handler');
     if ((global as any).setInkDeviceSelectHandler) {
       (global as any).setInkDeviceSelectHandler(handler);
+      logger.debug('Device select handler set successfully');
+    } else {
+      logger.debug('setInkDeviceSelectHandler not available yet');
     }
   }
 
