@@ -46,7 +46,7 @@ export function Router() {
 function renderHelpText(screen: Screens): string {
   switch (screen) {
     case 'device-list':
-      return '↑↓ Select • Enter Connect • Q Exit';
+      return DeviceList.helpText;
     case 'connecting':
       return Connecting.helpText;
     case 'connected':
@@ -72,15 +72,34 @@ function renderScreen(screen: Screens): React.ReactNode {
   }
 };
 
+const getCircularReplacer = () => {
+  const seen = new WeakSet();
+  return (_key: any, value: object | null) => {
+      if (typeof value === "object" && value !== null) {
+          if (seen.has(value)) {
+              return; // Remove circular reference
+          }
+          seen.add(value);
+      }
+      return value;
+  };
+};
+
 function Connecting() {
-  const { navigateTo } = useRouter();
+  const { navigateTo, params } = useRouter();
+  const { device } = params;
+
+  console.log(device);
   
   useInput((input, key) => {
     if (key.escape || (input === 'q' || input === 'Q')) {
       navigateTo('device-list');
     }
   });
-  return <Text>Connecting...</Text>;
+
+  // print full device info in beaurtiful formatted manner, but not JSON stringify
+  return <Text>{JSON.stringify(device, getCircularReplacer(), 2)}</Text>;
+
 }
 
 Connecting.helpText = 'Q Cancel';

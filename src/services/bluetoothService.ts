@@ -1,71 +1,98 @@
 /// <reference types="node" />
-import noble from '@abandonware/noble';
-import { NobleDevice } from '../types/ble.js';
+import noble, { Peripheral } from '@abandonware/noble';
 import { logger } from '../utils/logger.js';
 import { getManufacturerId } from '../utils/manufacturer.js';
+import EventEmitter from 'events';
 
-export interface BluetoothService {
+export type DiscoveredDevice = {
+  peripheral: Peripheral;
+  lastSeen: number;
+  firstSeen: number;
+};
+
+export type BluetoothServiceEventMap = {
+  'device-discovered': [device: DiscoveredDevice];
+  'devices-updated': [devices: DiscoveredDevice[]];
+};
+
+export interface BluetoothService extends EventEmitter<BluetoothServiceEventMap> {
   /**
    * Start scanning for BLE devices.
-   * @param onDevicesUpdated - Callback function to handle device updates. return full list of devices
    * @returns A promise that resolves when the service is started.
    */
-  start: (onDevicesUpdated: (devices: NobleDevice[]) => void) => Promise<void>;
+  start: () => Promise<void>;
   stop: () => void;
 }
 
 export async function createBluetoothService(): Promise<BluetoothService> {
-
+  const eventEmitter = new EventEmitter() as BluetoothService;
+  
   let isScanning = false;
-  let currentUpdateHandler: ((devices: NobleDevice[]) => void) | undefined;
-  let discoveredDevices: NobleDevice[] = [];
+  let discoveredDevices: DiscoveredDevice[] = [];
   // FIXME: use a better timeout mechanism
   let updateTimeout: ReturnType<typeof globalThis.setTimeout> | null = null;
 
   // Create a better unique identifier that includes manufacturer ID
-  function createDeviceId(dev: NobleDevice): string {
-    const name = dev.advertisement.localName || '(no name)';
-    const address = dev.address || 'unknown';
-    const serviceUuids = dev.advertisement.serviceUuids || [];
-    const manufacturerId = getManufacturerId(dev.advertisement.manufacturerData);
+  function createDeviceId(peripheral: Peripheral): string {
+    // const name = peripheral.advertisement.localName || '(no name)';
+    // const address = peripheral.address || 'unknown';
+    // const serviceUuids = peripheral.advertisement.serviceUuids || [];
+    // const manufacturerId = getManufacturerId(peripheral.advertisement.manufacturerData);
     
-    // If we have a valid address, use it as primary identifier
-    if (address && address !== 'unknown' && address.trim() !== '') {
-      return `addr-${address}-${manufacturerId}`;
-    }
+    // // If we have a valid address, use it as primary identifier
+    // if (address && address !== 'unknown' && address.trim() !== '') {
+    //   return `addr-${address}-${manufacturerId}`;
+    // }
     
-    // Otherwise use a combination of other stable identifiers including manufacturer ID
-    return `name-${name}-services-${serviceUuids.join(',')}-${manufacturerId}`;
+    // // Otherwise use a combination of other stable identifiers including manufacturer ID
+    // return `name-${name}-services-${serviceUuids.join(',')}-${manufacturerId}`;
+    return peripheral.uuid;
   }
 
-  function handleDeviceDiscover(device: NobleDevice) {
-    const localName = device.advertisement.localName || '(no name)';
+  function handleDeviceDiscover(peripheral: Peripheral) {
+    const localName = peripheral.advertisement.localName || '(no name)';
     const now = Date.now();
     
-    const deviceId = createDeviceId(device);
+    const deviceId = createDeviceId(peripheral);
     
     // Add or update device with lastSeen timestamp, and track firstSeen
-    const existingIndex = discoveredDevices.findIndex(d => createDeviceId(d) === deviceId);
+    const existingIndex = discoveredDevices.findIndex(d => createDeviceId(d.peripheral) === deviceId);
     if (existingIndex >= 0) {
       // Only update lastSeen, preserve firstSeen
       const existingDevice = discoveredDevices[existingIndex];
-      discoveredDevices[existingIndex] = { ...device, lastSeen: now, firstSeen: (existingDevice as NobleDevice).firstSeen || now };
+      discoveredDevices[existingIndex] = {
+        ...existingDevice, // Keep existing device as base
+        lastSeen: now,
+        // Preserve other fields we want to keep from existing device
+        firstSeen: existingDevice.firstSeen || now,
+        // Only update fields that could change from device
+        peripheral: peripheral
+      };
     } else {
-      discoveredDevices.push({ ...device, lastSeen: now, firstSeen: now });
+      // For new devices, create a DiscoveredDevice by picking only the fields we need
+      const newDevice: DiscoveredDevice = {
+        peripheral: peripheral,
+        lastSeen: now,
+        firstSeen: now
+      };
+      discoveredDevices.push(newDevice);
       // Only log new devices, not every discovery
-      logger.info('New device discovered', { 
+      logger.info('New device discovered', {
         name: localName, 
-        address: device.address || 'empty',
-        services: device.advertisement.serviceUuids?.length || 0,
-        manufacturerId: getManufacturerId(device.advertisement.manufacturerData),
+        address: peripheral.address || 'empty',
+        services: peripheral.advertisement.serviceUuids?.length || 0,
+        manufacturerId: getManufacturerId(peripheral.advertisement.manufacturerData),
         totalDevices: discoveredDevices.length
       });
+      
+      // Emit the device-discovered event for new devices
+      eventEmitter.emit('device-discovered', newDevice);
     }
     
     // Remove devices not seen in the last 5 seconds
-    const cutoff = now - 5000;
+    const cutoff = now - 10000;
     const beforePrune = discoveredDevices.length;
-    discoveredDevices = discoveredDevices.filter(d => (d as NobleDevice).lastSeen !== undefined && (d as NobleDevice).lastSeen! >= cutoff);
+    discoveredDevices = discoveredDevices.filter(d => d.lastSeen !== undefined && d.lastSeen! >= cutoff);
     const afterPrune = discoveredDevices.length;
     
     // Only log pruning if devices were actually removed
@@ -82,10 +109,8 @@ export async function createBluetoothService(): Promise<BluetoothService> {
     }
     updateTimeout = globalThis.setTimeout(() => {
       // Sort devices by firstSeen (ascending)
-      const sortedDevices = [...discoveredDevices].sort((a, b) => ((a as NobleDevice).firstSeen || 0) - ((b as NobleDevice).firstSeen || 0));
-      if (currentUpdateHandler) {
-        currentUpdateHandler(sortedDevices);
-      }
+      const sortedDevices = [...discoveredDevices].sort((a, b) => (a.firstSeen || 0) - (b.firstSeen || 0));
+      eventEmitter.emit('devices-updated', sortedDevices);
     }, 100); // 100ms debounce
   }
 
@@ -103,7 +128,7 @@ export async function createBluetoothService(): Promise<BluetoothService> {
     });
   }
 
-  async function start(onDevicesUpdated: (devices: NobleDevice[]) => void): Promise<void> {
+  async function start(): Promise<void> {
     return new Promise(async (resolve, reject) => {
       if (isScanning) {
         reject(new Error('Already scanning'));
@@ -122,7 +147,6 @@ export async function createBluetoothService(): Promise<BluetoothService> {
 
         // Reset discovered devices
         discoveredDevices = [];
-        currentUpdateHandler = onDevicesUpdated;
         isScanning = true;
         
         logger.info('Starting BLE scan');
@@ -152,7 +176,6 @@ export async function createBluetoothService(): Promise<BluetoothService> {
       isScanning = false;
       
       noble.removeListener('discover', handleDeviceDiscover);
-      currentUpdateHandler = undefined;
       
       if (updateTimeout) {
         globalThis.clearTimeout(updateTimeout);
@@ -163,8 +186,9 @@ export async function createBluetoothService(): Promise<BluetoothService> {
     }
   }
 
-  return {
-    start,
-    stop,
-  };
+  // Attach methods to the event emitter
+  eventEmitter.start = start;
+  eventEmitter.stop = stop;
+
+  return eventEmitter;
 } 

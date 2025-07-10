@@ -5,7 +5,7 @@ import { join } from 'path';
 
 const getCircularReplacer = () => {
   const seen = new WeakSet();
-  return (key, value) => {
+  return (_key: any, value: object | null) => {
       if (typeof value === "object" && value !== null) {
           if (seen.has(value)) {
               return; // Remove circular reference
