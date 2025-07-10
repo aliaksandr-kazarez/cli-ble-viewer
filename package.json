@@ -1,0 +1,33 @@
+{
+  "name": "gourmetmiles-ble-client",
+  "version": "1.0.0",
+  "description": "BLE client for Gourmetmiles smart scale",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node dist/index.js",
+    "dev": "nodemon --watch src --ext ts --exec 'npm run build && node dist/index.js'"
+  },
+  "dependencies": {
+    "@abandonware/noble": "^1.9.2-26",
+    "ansi-escapes": "^7.0.0",
+    "cli-table3": "^0.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "nodemon": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "ble",
+    "bluetooth",
+    "smart-scale",
+    "gourmetmiles"
+  ],
+  "author": "",
+  "license": "MIT"
+}
