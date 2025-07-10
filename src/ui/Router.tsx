@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { DeviceList } from './components/DeviceList';
+import { ScaleInfo } from './components/ScaleInfo';
 
 export type Screens = 'device-list' | 'connecting' | 'connected' | 'error';
 
@@ -64,9 +65,9 @@ function renderScreen(screen: Screens): React.ReactNode {
     case 'device-list':
       return <DeviceList />;
     case 'connecting':
-      return <Connecting />;
+      return <ScaleInfo />;
     case 'connected':
-      return <Connected />;
+      return <ScaleInfo />;
     case 'error':
       return <Error />;
   }
@@ -102,9 +103,6 @@ function Connecting() {
 
 }
 
-Connecting.helpText = 'Q Cancel';
-
-const Connected = Connecting;
 const Error = Connecting;
 
 

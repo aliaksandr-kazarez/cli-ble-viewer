@@ -1,5 +1,7 @@
-import { NobleDevice } from '../types/ble.js';
+import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
+import { DiscoveredDevice } from './bluetoothService.js';
+import { Service, Characteristic } from '@abandonware/noble';
 
 export type ScaleWeightReading = {
   grams: number;
@@ -14,78 +16,64 @@ export type BatteryReading = {
   timestamp: Date;
 };
 
-type Service = { uuid: string; name?: string };
-type Characteristic = {
-  uuid: string;
-  name?: string;
-  properties: string[];
-  on: (event: string, cb: (data: Buffer) => void) => void;
-  subscribe: (cb: (err?: Error) => void) => void;
-  read: (cb: (err: Error | null, data: Buffer) => void) => void;
+export type ScaleConnectionEventMap = {
+  'connected': [];
+  'disconnected': [];
+  'error': [error: Error];
+  'weight': [reading: ScaleWeightReading];
+  'battery': [reading: BatteryReading];
 };
 
-export type ScaleConnectionEvent =
-  | { type: 'connected' }
-  | { type: 'disconnected' }
-  | { type: 'error'; error: Error }
-  | { type: 'weight'; reading: ScaleWeightReading }
-  | { type: 'battery'; reading: BatteryReading };
-
-export type ScaleConnection = {
-  connect: (device: NobleDevice) => Promise<void>;
-  disconnect: () => void;
-  on: (handler: (event: ScaleConnectionEvent) => void) => void;
-  getStatus: () => boolean;
+export interface ScaleConnectionService extends EventEmitter<ScaleConnectionEventMap> {
+  connect: (device: DiscoveredDevice) => Promise<void>;
+  disconnect: () => Promise<void>;
   readBattery: () => Promise<BatteryReading | null>;
+  getStatus: () => boolean;
 };
 
-export function createScaleConnection(): ScaleConnection {
-  let device: NobleDevice | null = null;
+export function createScaleConnectionService(): ScaleConnectionService {
+  let device: DiscoveredDevice | null = null;
   let isConnected = false;
   let lastPayloadHex: string | null = null;
-  const eventHandlers: Array<(event: ScaleConnectionEvent) => void> = [];
   let batteryCharacteristic: Characteristic | null = null;
 
-  function emit(event: ScaleConnectionEvent) {
-    for (const handler of eventHandlers) handler(event);
-  }
+  // Create EventEmitter instance
+  const eventEmitter = new EventEmitter<ScaleConnectionEventMap>();
 
-  async function connect(dev: NobleDevice): Promise<void> {
+  async function connect(dev: DiscoveredDevice): Promise<void> {
     device = dev;
     return new Promise((resolve, reject) => {
-      device!.connect((error?: unknown) => {
+      device!.peripheral.connect((error?: unknown) => {
         if (error) {
-          emit({ type: 'error', error: error instanceof Error ? error : new Error(String(error)) });
+          const errorObj = error instanceof Error ? error : new Error(String(error));
+          eventEmitter.emit('error', errorObj);
           return reject(error);
         }
         isConnected = true;
-        emit({ type: 'connected' });
+        eventEmitter.emit('connected');
         setupServices()
           .then(resolve)
           .catch((e) => {
-            emit({ type: 'error', error: e as Error });
+            const errorObj = e instanceof Error ? e : new Error(String(e));
+            eventEmitter.emit('error', errorObj);
             reject(e);
           });
       });
-      device!.on('disconnect', () => {
+      device!.peripheral.on('disconnect', () => {
         isConnected = false;
-        emit({ type: 'disconnected' });
+        eventEmitter.emit('disconnected');
       });
     });
   }
 
-  function disconnect() {
+  function disconnect(): void {
     if (device && isConnected) {
-      device.disconnect();
+      device.peripheral.disconnect();
       isConnected = false;
     }
   }
 
-  function on(handler: (event: ScaleConnectionEvent) => void) {
-    eventHandlers.push(handler);
-  }
-
-  function getStatus() {
+  function getStatus(): boolean {
     return isConnected;
   }
 
@@ -96,9 +84,9 @@ export function createScaleConnection(): ScaleConnection {
     }
 
     return new Promise((resolve, reject) => {
-      batteryCharacteristic!.read((err: Error | null, data: Buffer) => {
-        if (err) {
-          reject(err);
+      batteryCharacteristic!.read((error: string, data: Buffer) => {
+        if (error) {
+          reject(new Error(error));
           return;
         }
         const level = data[0]; // Battery level is first byte (0-100)
@@ -107,7 +95,7 @@ export function createScaleConnection(): ScaleConnection {
           raw: data,
           timestamp: new Date(),
         };
-        emit({ type: 'battery', reading });
+        eventEmitter.emit('battery', reading);
         resolve(reading);
       });
     });
@@ -116,8 +104,8 @@ export function createScaleConnection(): ScaleConnection {
   async function setupServices(): Promise<void> {
     if (!device) throw new Error('No device connected');
     return new Promise((resolve, reject) => {
-      (device as { discoverAllServicesAndCharacteristics: (cb: (error?: unknown, services?: Service[], characteristics?: Characteristic[]) => void) => void }).discoverAllServicesAndCharacteristics((error?: unknown, services?: Service[], characteristics?: Characteristic[]) => {
-        if (error) return reject(error);
+      device!.peripheral.discoverAllServicesAndCharacteristics((error: string, services: Service[], characteristics: Characteristic[]) => {
+        if (error) return reject(new Error(error));
         if (!characteristics) return reject(new Error('No characteristics found'));
 
         // Log all available services and characteristics for debugging
@@ -145,9 +133,9 @@ export function createScaleConnection(): ScaleConnection {
         } else {
           logger.info('Found weight characteristic', { uuid: weightChar.uuid });
           weightChar.on('data', (data: Buffer) => handleWeightData(data));
-          weightChar.subscribe((err?: Error) => {
+          weightChar.subscribe((err: string) => {
             if (err) {
-              logger.error('Failed to subscribe to weight notifications', { error: err.message });
+              logger.error('Failed to subscribe to weight notifications', { error: err });
             } else {
               logger.info('Subscribed to weight notifications');
             }
@@ -184,7 +172,7 @@ export function createScaleConnection(): ScaleConnection {
     });
   }
 
-  function handleWeightData(data: Buffer) {
+  function handleWeightData(data: Buffer): void {
     const hexStr = data.toString('hex');
     if (lastPayloadHex === hexStr) return; // dedupe
     lastPayloadHex = hexStr;
@@ -198,14 +186,16 @@ export function createScaleConnection(): ScaleConnection {
       raw: data,
       timestamp: new Date(),
     };
-    emit({ type: 'weight', reading });
+    eventEmitter.emit('weight', reading);
   }
 
-  return {
+  // Create the ScaleConnection object by combining EventEmitter methods with our custom methods
+  const scaleConnection = Object.assign(eventEmitter, {
     connect,
     disconnect,
-    on,
     getStatus,
     readBattery,
-  };
+  }) as ScaleConnectionService;
+
+  return scaleConnection;
 } 
