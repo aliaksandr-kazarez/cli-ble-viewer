@@ -5,12 +5,17 @@ import { logger } from '../utils/logger.js';
 import { getManufacturerId } from '../utils/manufacturer.js';
 
 export interface BluetoothService {
-  startScanning: (onDeviceUpdate: (devices: NobleDevice[]) => void) => Promise<void>;
-  stopScanning: () => void;
+  /**
+   * Start scanning for BLE devices.
+   * @param onDevicesUpdated - Callback function to handle device updates. return full list of devices
+   * @returns A promise that resolves when the service is started.
+   */
+  start: (onDevicesUpdated: (devices: NobleDevice[]) => void) => Promise<void>;
+  stop: () => void;
 }
 
 export async function createBluetoothService(): Promise<BluetoothService> {
-  
+
   let isScanning = false;
   let currentUpdateHandler: ((devices: NobleDevice[]) => void) | undefined;
   let discoveredDevices: NobleDevice[] = [];
@@ -98,41 +103,49 @@ export async function createBluetoothService(): Promise<BluetoothService> {
     });
   }
 
-  async function startScanning(onDeviceUpdate: (devices: NobleDevice[]) => void): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async function start(onDevicesUpdated: (devices: NobleDevice[]) => void): Promise<void> {
+    return new Promise(async (resolve, reject) => {
       if (isScanning) {
         reject(new Error('Already scanning'));
         return;
       }
 
-      // Clear any existing timeout
-      if (updateTimeout) {
-        globalThis.clearTimeout(updateTimeout);
-        updateTimeout = null;
-      }
+      try {
+        // Wait for noble to be ready
+        await waitForReady();
 
-      // Reset discovered devices
-      discoveredDevices = [];
-      currentUpdateHandler = onDeviceUpdate;
-      isScanning = true;
-      
-      logger.info('Starting BLE scan');
-      noble.on('discover', handleDeviceDiscover);
-      
-      noble.startScanning([], true, (error?: Error) => {
-        if (error) {
-          logger.error('Scan start error', { error: error.message });
-          isScanning = false;
-          reject(error);
-        } else {
-          logger.info('Scan started successfully');
-          resolve();
+        // Clear any existing timeout
+        if (updateTimeout) {
+          globalThis.clearTimeout(updateTimeout);
+          updateTimeout = null;
         }
-      });
+
+        // Reset discovered devices
+        discoveredDevices = [];
+        currentUpdateHandler = onDevicesUpdated;
+        isScanning = true;
+        
+        logger.info('Starting BLE scan');
+        noble.on('discover', handleDeviceDiscover);
+        
+        noble.startScanning([], true, (error?: Error) => {
+          if (error) {
+            logger.error('Scan start error', { error: error.message });
+            isScanning = false;
+            reject(error);
+          } else {
+            logger.info('Scan started successfully');
+            resolve();
+          }
+        });
+      } catch (error) {
+        isScanning = false;
+        reject(error);
+      }
     });
   }
 
-  function stopScanning(): void {
+  function stop(): void {
     if (isScanning) {
       logger.info('Stopping BLE scan');
       noble.stopScanning();
@@ -151,8 +164,7 @@ export async function createBluetoothService(): Promise<BluetoothService> {
   }
 
   return {
-    waitForReady,
-    startScanning,
-    stopScanning,
+    start,
+    stop,
   };
 } 
