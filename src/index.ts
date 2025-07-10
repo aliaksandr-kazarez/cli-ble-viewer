@@ -106,12 +106,8 @@ export function createApplication() {
         process.exit(1);
       }
 
-      // Configure terminal for proper input handling
-      if (process.stdin.isTTY) {
-        process.stdin.setRawMode(true);
-        process.stdin.resume();
-        process.stdin.setEncoding('utf8');
-      }
+      // Let Ink handle all terminal input - don't configure raw mode manually
+      // Ink will handle the terminal configuration internally
             
       await appService.initialize();
     } catch (error) {
@@ -123,12 +119,7 @@ export function createApplication() {
   function stop(): void {
     logger.info('Stopping Gourmetmiles BLE Client');
     
-    // Restore terminal to normal mode
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
-    }
-    
+    // Let Ink handle terminal cleanup
     appService.cleanup();
   }
 

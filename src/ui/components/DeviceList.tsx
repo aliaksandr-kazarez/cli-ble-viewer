@@ -32,7 +32,8 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
       'Services'.length,
       ...devices.map(d => {
         const services = d.advertisement.serviceUuids || [];
-        const serviceStr = services.length > 0 ? services.slice(0, 1).join('').substring(0, 8) + '...' : '';
+        const serviceStr = services.length > 0 ? 
+          (services[0].length > 12 ? services[0].substring(0, 12) + '…' : services[0]) : '';
         return serviceStr.length;
       })
     );
@@ -40,7 +41,8 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
       'Manufacturer'.length,
       ...devices.map(d => {
         const mfg = d.advertisement.manufacturerData;
-        const mfgStr = mfg ? mfg.toString('hex').substring(0, 12) : '';
+        const mfgStr = mfg ? 
+          (mfg.toString('hex').length > 22 ? mfg.toString('hex').substring(0, 22) + '…' : mfg.toString('hex')) : '';
         return mfgStr.length;
       })
     );
@@ -56,8 +58,8 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
     return { 
       nameWidth: Math.max(nameWidth, 15), 
       addressWidth: Math.max(addressWidth, 12), 
-      servicesWidth: Math.max(servicesWidth, 10), 
-      mfgWidth: Math.max(mfgWidth, 12), 
+      servicesWidth: Math.max(servicesWidth, 16), // Increased from 10 to 16
+      mfgWidth: Math.max(mfgWidth, 32), // Increased from 12 to 32
       txWidth: Math.max(txWidth, 8) 
     };
   };
@@ -109,9 +111,10 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
           
           // Format data for table with consistent lengths
           const serviceStr = serviceUuids.length > 0 
-            ? serviceUuids.slice(0, 1).join('').substring(0, 8) + '...' 
+            ? (serviceUuids[0].length > 12 ? serviceUuids[0].substring(0, 12) + '…' : serviceUuids[0])
             : '';
-          const mfgStr = manufacturerData ? manufacturerData.toString('hex').substring(0, 12) : '';
+          const mfgStr = manufacturerData ? 
+            (manufacturerData.toString('hex').length > 22 ? manufacturerData.toString('hex').substring(0, 22) + '…' : manufacturerData.toString('hex')) : '';
           const txStr = txPowerLevel !== undefined ? `${txPowerLevel}dBm` : '';
           
           const prefix = isSelected ? '▶ ' : '  ';

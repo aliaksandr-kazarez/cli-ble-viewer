@@ -61,7 +61,7 @@ export function App({
         <Text color="cyan" bold>⚖️ Gourmetmiles Smart Scale BLE Client</Text>
       </Box>
       
-      {!selectedDevice ? (
+      {connectionStatus === 'disconnected' && !selectedDevice ? (
         <DeviceList 
           devices={devices} 
           selectedIndex={selectedIndex} 
@@ -69,8 +69,8 @@ export function App({
         />
       ) : (
         <ScaleInfo 
-          deviceName={selectedDevice.advertisement.localName || '(no name)'}
-          deviceAddress={selectedDevice.address}
+          deviceName={selectedDevice?.advertisement.localName || '(no name)'}
+          deviceAddress={selectedDevice?.address || '(no address)'}
           isConnected={isConnected}
           lastWeight={lastWeight}
           batteryLevel={batteryLevel}
@@ -80,7 +80,7 @@ export function App({
       
       <Box>
         <Text color="gray">
-          {!selectedDevice ? '↑↓ Select • Enter Connect • Q Exit' : 'B Battery • Ctrl-C Disconnect'}
+          {connectionStatus === 'disconnected' && !selectedDevice ? '↑↓ Select • Enter Connect • Q Exit' : 'B Battery • Ctrl-C Disconnect'}
         </Text>
       </Box>
     </Box>
