@@ -1,71 +1,196 @@
-import { DeviceManager } from './deviceManager.js';
-import { BluetoothService } from './bluetoothService.js';
-import { Display } from '../ui/display.js';
+import { createBluetoothService } from './bluetoothService.js';
+import { createScaleConnection, ScaleConnectionEvent } from '../scales/scaleConnectionService.js';
+import { createInkUI } from '../ui/inkUI.js';
 import { NobleDevice } from '../types/ble.js';
 import { logger } from '../utils/logger.js';
 
-// App service - coordinates between different modules
-export class AppService {
-  private deviceManager: DeviceManager;
-  private bluetoothService: BluetoothService;
+export function createAppService() {
+  const bluetoothService = createBluetoothService();
+  const scaleConnection = createScaleConnection();
+  const inkUI = createInkUI();
+  
+  let discoveredDevices: NobleDevice[] = [];
+  let isConnecting = false;
+  let updateTimeout: NodeJS.Timeout | null = null;
 
-  constructor() {
-    this.deviceManager = new DeviceManager();
-    this.bluetoothService = new BluetoothService();
-  }
-
-  // Initialize the application
-  async initialize(): Promise<void> {
+  async function initialize() {
     try {
-      await this.bluetoothService.waitForReady();
-      Display.showBluetoothReady();
+      await bluetoothService.waitForReady();
+      setupUI();
+      await startDiscovery();
     } catch (error) {
-      Display.showError(error instanceof Error ? error.message : String(error));
+      logger.error(error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
 
-  // Start device discovery
-  async startDiscovery(): Promise<void> {
-    try {
-      Display.showStartupMessage();
+  function setupUI() {
+    inkUI.setDeviceSelectHandler(async (device: NobleDevice) => {
+      if (isConnecting) return;
       
-      await this.bluetoothService.startScanning((device: NobleDevice) => {
-        this.handleDeviceDiscover(device);
+      isConnecting = true;
+      inkUI.updateState({ 
+        selectedDevice: device, 
+        connectionStatus: 'connecting' 
+      });
+      
+      try {
+        await connectAndReadWeightData(device);
+      } catch (error) {
+        logger.error('Failed to connect and read data', { error: (error as Error).message });
+        inkUI.updateState({ 
+          connectionStatus: 'error',
+          isConnected: false 
+        });
+        isConnecting = false;
+      }
+    });
+
+    inkUI.setExitHandler(() => {
+      cleanup();
+      process.exit(0);
+    });
+
+    inkUI.start();
+  }
+
+  async function startDiscovery() {
+    try {
+      await bluetoothService.startScanning((device: NobleDevice) => {
+        handleDeviceDiscover(device);
       });
     } catch (error) {
-      Display.showError(error instanceof Error ? error.message : String(error));
+      logger.error(error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
 
-  // Handle device discovery
-  private handleDeviceDiscover(device: NobleDevice): void {
-    logger.info('Device discovered', {
-      deviceName: device.advertisement.localName || '(no name)',
-      address: device.address,
-      serviceUuids: device.advertisement.serviceUuids || []
-    });
+  function handleDeviceDiscover(device: NobleDevice) {
+    const localName = device.advertisement.localName || '(no name)';
     
-    this.deviceManager.addDevice(device);
-    const devices = this.deviceManager.getAllDevices();
-    logger.debug('Rendering device list', { deviceCount: devices.length });
-    Display.renderDeviceList(devices);
+    // Add to discovered devices if not already present
+    const existingIndex = discoveredDevices.findIndex(d => d.address === device.address);
+    if (existingIndex >= 0) {
+      // Update existing device
+      discoveredDevices[existingIndex] = device;
+    } else {
+      // Add new device
+      discoveredDevices.push(device);
+    }
+    
+    // Debounce UI updates to prevent flickering
+    if (updateTimeout) {
+      clearTimeout(updateTimeout);
+    }
+    
+    updateTimeout = setTimeout(() => {
+      inkUI.updateState({ devices: [...discoveredDevices] });
+    }, 100); // 100ms debounce
   }
 
-  // Cleanup resources
-  cleanup(): void {
-    Display.showCleanup();
-    this.bluetoothService.stopScanning();
+  async function connectAndReadWeightData(device: NobleDevice) {
+    try {
+      setupScaleEventHandlers();
+      await scaleConnection.connect(device);
+      inkUI.updateState({ 
+        connectionStatus: 'connected',
+        isConnected: true 
+      });
+      keepConnectionAlive();
+    } catch (error) {
+      scaleConnection.disconnect();
+      throw error;
+    }
   }
 
-  // Get device manager instance
-  getDeviceManager(): DeviceManager {
-    return this.deviceManager;
+  function setupScaleEventHandlers() {
+    scaleConnection.on((event: ScaleConnectionEvent) => {
+      switch (event.type) {
+        case 'connected':
+          inkUI.updateState({ 
+            connectionStatus: 'connected',
+            isConnected: true 
+          });
+          break;
+        case 'weight':
+          inkUI.updateState({ lastWeight: event.reading });
+          break;
+        case 'battery':
+          inkUI.updateState({ batteryLevel: event.reading.level });
+          break;
+        case 'disconnected':
+          inkUI.updateState({ 
+            connectionStatus: 'disconnected',
+            isConnected: false 
+          });
+          break;
+        case 'error':
+          inkUI.updateState({ 
+            connectionStatus: 'error',
+            isConnected: false 
+          });
+          break;
+      }
+    });
   }
 
-  // Get bluetooth service instance
-  getBluetoothService(): BluetoothService {
-    return this.bluetoothService;
+  function keepConnectionAlive() {
+    const connectionCheck = setInterval(() => {
+      if (!scaleConnection.getStatus()) {
+        inkUI.updateState({ 
+          connectionStatus: 'disconnected',
+          isConnected: false 
+        });
+        clearInterval(connectionCheck);
+        cleanup();
+        process.exit(0);
+      }
+    }, 1000);
+
+    // Handle keyboard input for battery reading
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', async (key) => {
+      const keyStr = key.toString();
+      if (keyStr === 'b' || keyStr === 'B') {
+        try {
+          const batteryReading = await scaleConnection.readBattery();
+          if (batteryReading) {
+            inkUI.updateState({ batteryLevel: batteryReading.level });
+          }
+        } catch (error) {
+          logger.error('Failed to read battery', { error: (error as Error).message });
+        }
+      } else if (keyStr === '\u0003') { // Ctrl-C
+        logger.info('Disconnecting...');
+        clearInterval(connectionCheck);
+        scaleConnection.disconnect();
+        cleanup();
+        process.exit(0);
+      }
+    });
+
+    process.on('SIGINT', () => {
+      logger.info('Disconnecting...');
+      clearInterval(connectionCheck);
+      scaleConnection.disconnect();
+      cleanup();
+      process.exit(0);
+    });
   }
+
+  function cleanup() {
+    bluetoothService.stopScanning();
+    if (updateTimeout) {
+      clearTimeout(updateTimeout);
+    }
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+  }
+
+  return {
+    initialize,
+    cleanup,
+  };
 } 

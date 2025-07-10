@@ -2,13 +2,11 @@ import noble from '@abandonware/noble';
 import { NobleDevice } from '../types/ble.js';
 import { logger } from '../utils/logger.js';
 
-// Bluetooth service - handles BLE operations independently
-export class BluetoothService {
-  private isScanning = false;
-  private currentDiscoverHandler?: (device: NobleDevice) => void;
+export function createBluetoothService() {
+  let isScanning = false;
+  let currentDiscoverHandler: ((device: NobleDevice) => void) | undefined;
 
-  // Wait for noble to be ready
-  async waitForReady(): Promise<void> {
+  async function waitForReady(): Promise<void> {
     return new Promise<void>((resolve) => {
       if ((noble as any).state === 'poweredOn') {
         resolve();
@@ -22,29 +20,27 @@ export class BluetoothService {
     });
   }
 
-  // Start scanning for devices
-  startScanning(onDeviceDiscover: (device: NobleDevice) => void): Promise<void> {
+  async function startScanning(onDeviceDiscover: (device: NobleDevice) => void): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (this.isScanning) {
+      if (isScanning) {
         reject(new Error('Already scanning'));
         return;
       }
 
-      // Remove any existing discover handler
-      if (this.currentDiscoverHandler) {
+      if (currentDiscoverHandler) {
         logger.debug('Removing previous discover handler');
-        noble.removeListener('discover', this.currentDiscoverHandler);
+        noble.removeListener('discover', currentDiscoverHandler);
       }
 
-      this.currentDiscoverHandler = onDeviceDiscover;
-      this.isScanning = true;
-      logger.info('Starting BLE scan', { hasHandler: !!this.currentDiscoverHandler });
+      currentDiscoverHandler = onDeviceDiscover;
+      isScanning = true;
+      logger.info('Starting BLE scan', { hasHandler: !!currentDiscoverHandler });
       noble.on('discover', onDeviceDiscover);
       
       noble.startScanning([], true, (error) => {
         if (error) {
           logger.error('Scan start error', { error: error.message });
-          this.isScanning = false;
+          isScanning = false;
           reject(error);
         } else {
           logger.info('Scan started successfully');
@@ -54,27 +50,22 @@ export class BluetoothService {
     });
   }
 
-  // Stop scanning
-  stopScanning(): void {
-    if (this.isScanning) {
+  function stopScanning(): void {
+    if (isScanning) {
       logger.info('Stopping BLE scan');
       noble.stopScanning();
-      // Remove the discover handler
-      if (this.currentDiscoverHandler) {
-        noble.removeListener('discover', this.currentDiscoverHandler);
-        this.currentDiscoverHandler = undefined;
+      isScanning = false;
+      
+      if (currentDiscoverHandler) {
+        noble.removeListener('discover', currentDiscoverHandler);
+        currentDiscoverHandler = undefined;
       }
-      this.isScanning = false;
     }
   }
 
-  // Check if currently scanning
-  isCurrentlyScanning(): boolean {
-    return this.isScanning;
-  }
-
-  // Get current bluetooth state
-  getState(): string {
-    return (noble as any).state;
-  }
+  return {
+    waitForReady,
+    startScanning,
+    stopScanning,
+  };
 } 

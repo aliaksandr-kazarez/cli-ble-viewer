@@ -1,43 +1,49 @@
 #!/usr/bin/env node
 
-import { AppService } from './services/appService.js';
+import { createAppService } from './services/appService.js';
 import { logger } from './utils/logger.js';
 
-// Main application entry point
-class Application {
-  private appService: AppService;
+export function createApplication() {
+  const appService = createAppService();
 
-  constructor() {
-    this.appService = new AppService();
-  }
-
-  // Initialize and start the application
-  async start(): Promise<void> {
+  async function start(): Promise<void> {
     try {
-      await this.appService.initialize();
-      await this.appService.startDiscovery();
+      logger.info('Starting Gourmetmiles BLE Client with Ink UI');
+      await appService.initialize();
     } catch (error) {
-      console.error('❌ Application error:', error instanceof Error ? error.message : String(error));
+      logger.error('Failed to start application', { error: (error as Error).message });
       process.exit(1);
     }
   }
 
-  // Cleanup and shutdown
-  shutdown(): void {
-    logger.info('Application shutting down');
-    this.appService.cleanup();
-    logger.close();
-    process.exit(0);
+  function stop(): void {
+    logger.info('Stopping Gourmetmiles BLE Client');
+    appService.cleanup();
   }
+
+  return {
+    start,
+    stop,
+  };
 }
 
-// Create and start the application
-const app = new Application();
+// Main execution
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const app = createApplication();
+  
+  // Handle graceful shutdown
+  process.on('SIGINT', () => {
+    app.stop();
+    process.exit(0);
+  });
 
-// Handle SIGINT (Ctrl-C)
-process.on('SIGINT', () => {
-  app.shutdown();
-});
+  process.on('SIGTERM', () => {
+    app.stop();
+    process.exit(0);
+  });
 
-// Start the application
-app.start(); 
+  app.start().catch((error) => {
+    logger.error('Application failed', { error: (error as Error).message });
+    process.exit(1);
+  });
+} 
