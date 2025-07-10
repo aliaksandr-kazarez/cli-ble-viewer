@@ -107,22 +107,9 @@ const Error = Connecting;
   //   logger.debug('Input received', { input, key, currentScreen, selectedIndex, devicesLength: devices.length });
     
   //   // Handle navigation based on current screen
+
   //   if (currentScreen === 'device-list') {
-  //     // Device List Screen Controls
-  //     if (key.upArrow && selectedIndex > 0) {
-  //       logger.debug('Moving up');
-  //       setSelectedIndex(selectedIndex - 1);
-  //     } else if (key.downArrow && selectedIndex < devices.length - 1) {
-  //       logger.debug('Moving down');
-  //       setSelectedIndex(selectedIndex + 1);
-  //     } else if (key.return && devices.length > 0) {
-  //       const selectedDevice = devices[selectedIndex];
-  //       logger.debug('Enter pressed, selecting device', { 
-  //         deviceName: selectedDevice.advertisement.localName || '(no name)',
-  //         deviceAddress: selectedDevice.address || '(no address)',
-  //         deviceIndex: selectedIndex
-  //       });
-  //       onDeviceSelect(devices[selectedIndex]);
+// MOVED TO DeviceList.tsx
   //     } else if (key.escape || (input === 'q' || input === 'Q')) {
   //       logger.debug('Exit requested');
   //       onExit();

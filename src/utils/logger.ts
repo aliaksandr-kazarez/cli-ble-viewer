@@ -3,6 +3,19 @@ import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
 
+const getCircularReplacer = () => {
+  const seen = new WeakSet();
+  return (key, value) => {
+      if (typeof value === "object" && value !== null) {
+          if (seen.has(value)) {
+              return; // Remove circular reference
+          }
+          seen.add(value);
+      }
+      return value;
+  };
+};
+
 // Logger utility for debugging
 export function createLogger(outputStream: Writable) {
   const isDebugMode = process.env.DEBUG === 'true';
@@ -10,7 +23,7 @@ export function createLogger(outputStream: Writable) {
   function formatMessage(level: string, message: string, data?: unknown): string {
     const timestamp = new Date().toISOString();
     // FIXME: avoid stringifying recursive objects
-    const dataStr = data ? ` ${JSON.stringify(data)}` : '';
+    const dataStr = data ? ` ${JSON.stringify(data, getCircularReplacer())}` : '';
     return `[${timestamp}] ${level.toUpperCase()}: ${message}${dataStr}`;
   }
 
