@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import noble from '@abandonware/noble';
 import { NobleDevice } from '../types/ble.js';
 import { logger } from '../utils/logger.js';
@@ -13,7 +14,8 @@ export function createBluetoothService(): BluetoothService {
   let isScanning = false;
   let currentUpdateHandler: ((devices: NobleDevice[]) => void) | undefined;
   let discoveredDevices: NobleDevice[] = [];
-  let updateTimeout: NodeJS.Timeout | null = null;
+  // FIXME: use a better timeout mechanism
+  let updateTimeout: ReturnType<typeof globalThis.setTimeout> | null = null;
 
   // Create a better unique identifier that includes manufacturer ID
   function createDeviceId(dev: NobleDevice): string {
@@ -42,7 +44,7 @@ export function createBluetoothService(): BluetoothService {
     if (existingIndex >= 0) {
       // Only update lastSeen, preserve firstSeen
       const existingDevice = discoveredDevices[existingIndex];
-      discoveredDevices[existingIndex] = { ...device, lastSeen: now, firstSeen: (existingDevice as any).firstSeen || now };
+      discoveredDevices[existingIndex] = { ...device, lastSeen: now, firstSeen: (existingDevice as NobleDevice).firstSeen || now };
     } else {
       discoveredDevices.push({ ...device, lastSeen: now, firstSeen: now });
       // Only log new devices, not every discovery
@@ -58,7 +60,7 @@ export function createBluetoothService(): BluetoothService {
     // Remove devices not seen in the last 5 seconds
     const cutoff = now - 5000;
     const beforePrune = discoveredDevices.length;
-    discoveredDevices = discoveredDevices.filter(d => (d as any).lastSeen >= cutoff);
+    discoveredDevices = discoveredDevices.filter(d => (d as NobleDevice).lastSeen !== undefined && (d as NobleDevice).lastSeen! >= cutoff);
     const afterPrune = discoveredDevices.length;
     
     // Only log pruning if devices were actually removed
@@ -71,11 +73,11 @@ export function createBluetoothService(): BluetoothService {
     
     // Debounce UI updates to prevent flickering
     if (updateTimeout) {
-      clearTimeout(updateTimeout);
+      globalThis.clearTimeout(updateTimeout);
     }
-    updateTimeout = setTimeout(() => {
+    updateTimeout = globalThis.setTimeout(() => {
       // Sort devices by firstSeen (ascending)
-      const sortedDevices = [...discoveredDevices].sort((a, b) => ((a as any).firstSeen || 0) - ((b as any).firstSeen || 0));
+      const sortedDevices = [...discoveredDevices].sort((a, b) => ((a as NobleDevice).firstSeen || 0) - ((b as NobleDevice).firstSeen || 0));
       if (currentUpdateHandler) {
         currentUpdateHandler(sortedDevices);
       }
@@ -84,7 +86,7 @@ export function createBluetoothService(): BluetoothService {
 
   async function waitForReady(): Promise<void> {
     return new Promise<void>((resolve) => {
-      if ((noble as any).state === 'poweredOn') {
+      if ((noble as unknown as { state: string }).state === 'poweredOn') {
         resolve();
       } else {
         noble.on('stateChange', (state) => {
@@ -105,7 +107,7 @@ export function createBluetoothService(): BluetoothService {
 
       // Clear any existing timeout
       if (updateTimeout) {
-        clearTimeout(updateTimeout);
+        globalThis.clearTimeout(updateTimeout);
         updateTimeout = null;
       }
 
@@ -117,7 +119,7 @@ export function createBluetoothService(): BluetoothService {
       logger.info('Starting BLE scan');
       noble.on('discover', handleDeviceDiscover);
       
-      noble.startScanning([], true, (error) => {
+      noble.startScanning([], true, (error?: Error) => {
         if (error) {
           logger.error('Scan start error', { error: error.message });
           isScanning = false;
@@ -140,7 +142,7 @@ export function createBluetoothService(): BluetoothService {
       currentUpdateHandler = undefined;
       
       if (updateTimeout) {
-        clearTimeout(updateTimeout);
+        globalThis.clearTimeout(updateTimeout);
         updateTimeout = null;
       }
       

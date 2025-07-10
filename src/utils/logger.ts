@@ -7,32 +7,33 @@ import { join } from 'path';
 export function createLogger(outputStream: Writable) {
   const isDebugMode = process.env.DEBUG === 'true';
 
-  function formatMessage(level: string, message: string, data?: any): string {
+  function formatMessage(level: string, message: string, data?: unknown): string {
     const timestamp = new Date().toISOString();
+    // FIXME: avoid stringifying recursive objects
     const dataStr = data ? ` ${JSON.stringify(data)}` : '';
     return `[${timestamp}] ${level.toUpperCase()}: ${message}${dataStr}`;
   }
 
-  function writeToStream(level: string, message: string, data?: any): void {
+  function writeToStream(level: string, message: string, data?: unknown): void {
     const formattedMessage = formatMessage(level, message, data) + '\n';
     outputStream.write(formattedMessage);
   }
 
-  function info(message: string, data?: any): void {
+  function info(message: string, data?: unknown): void {
     writeToStream('info', message, data);
   }
 
-  function debug(message: string, data?: any): void {
+  function debug(message: string, data?: unknown): void {
     if (isDebugMode) {
       writeToStream('debug', message, data);
     }
   }
 
-  function error(message: string, data?: any): void {
+  function error(message: string, data?: unknown): void {
     writeToStream('error', message, data);
   }
 
-  function warn(message: string, data?: any): void {
+  function warn(message: string, data?: unknown): void {
     writeToStream('warn', message, data);
   }
 
@@ -56,15 +57,16 @@ export async function createFileStream(filename: string): Promise<Writable> {
     const dir = filename.substring(0, filename.lastIndexOf('/'));
     try {
       await mkdir(dir, { recursive: true });
-    } catch (error) {
+    } catch {
       // Directory might already exist, ignore error
+      // where to log if the log is not yet initalized?
     }
   } else {
     // If filename is just a name, put it in the logs directory
     const logsDir = join(process.cwd(), 'logs');
     try {
       await mkdir(logsDir, { recursive: true });
-    } catch (error) {
+    } catch {
       // Directory might already exist, ignore error
     }
     filePath = join(logsDir, filename);

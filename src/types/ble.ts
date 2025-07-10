@@ -14,12 +14,12 @@ export interface NobleDevice {
     manufacturerData?: Buffer;
     serviceData?: Array<{ uuid: string; data: Buffer }>;
     solicitedServiceUuids?: string[];
-    [key: string]: any; // allow extra fields
+    [key: string]: unknown; // allow extra fields
   };
   address: string;
-  connect: (callback: (error?: any) => void) => void;
-  on: (event: string, callback: (data?: any) => void) => void;
-  discoverAllServicesAndCharacteristics: (callback: (error?: any, services?: any[], characteristics?: any[]) => void) => void;
+  connect: (callback: (error?: unknown) => void) => void;
+  on: (event: string, callback: (data?: unknown) => void) => void;
+  discoverAllServicesAndCharacteristics: (callback: (error?: unknown, services?: unknown[], characteristics?: unknown[]) => void) => void;
   disconnect: () => void;
   lastSeen?: number; // Add lastSeen for device pruning
   firstSeen?: number; // Add firstSeen for stable device ordering

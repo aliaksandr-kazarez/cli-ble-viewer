@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createApp } from './createApp.js';
+import { createApplication } from './createApplication.js';
 import { logger, setLoggerOutput } from './utils/logger.js';
 import { parseArgs } from './utils/args.js';
 
@@ -9,13 +9,13 @@ function isRawModeSupported(): boolean {
   return process.stdin.isTTY && process.stdin.setRawMode !== undefined;
 }
 
-export function setupLogging(): void {
+export async function setupLogging(): Promise<void> {
   const options = parseArgs();
 
   if (options.logOutput === 'file') {
-    setLoggerOutput(options.logFile);
+    await setLoggerOutput(options.logFile);
   } else {
-    setLoggerOutput(null);
+    await setLoggerOutput(null);
   }
 
   logger.info('Logging initialized', {
@@ -36,7 +36,7 @@ try {
       process.exit(1);
     }
   
-    const app = await createApp();
+    const app = await createApplication();
     console.info("Application started");
 
     process.on('SIGINT', () => {

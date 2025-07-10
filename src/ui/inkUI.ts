@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { render } from 'ink';
+import React, { useState } from 'react';
 import { App } from './components/App.js';
 import { NobleDevice } from '../types/ble.js';
 import { ScaleWeightReading } from '../scales/scaleConnectionService.js';

@@ -19,7 +19,7 @@ export interface UIService {
   setBatteryReadHandler: (handler: () => void) => void;
 }
 
-export function createUIService({ bluetoothService, scaleConnection }: UIServiceConfig): UIService {
+export function createUIService(): UIService {
   let isStarted = false;
 
   function start() {

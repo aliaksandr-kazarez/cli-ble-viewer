@@ -1,4 +1,3 @@
-import { setLoggerOutput, logger } from './logger.js';
 import { showHelp } from './help.js';
 
 export type AppOptions = {

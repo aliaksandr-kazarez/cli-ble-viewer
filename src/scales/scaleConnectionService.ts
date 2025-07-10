@@ -14,6 +14,16 @@ export type BatteryReading = {
   timestamp: Date;
 };
 
+type Service = { uuid: string; name?: string };
+type Characteristic = {
+  uuid: string;
+  name?: string;
+  properties: string[];
+  on: (event: string, cb: (data: Buffer) => void) => void;
+  subscribe: (cb: (err?: Error) => void) => void;
+  read: (cb: (err: Error | null, data: Buffer) => void) => void;
+};
+
 export type ScaleConnectionEvent =
   | { type: 'connected' }
   | { type: 'disconnected' }
@@ -33,8 +43,8 @@ export function createScaleConnection(): ScaleConnection {
   let device: NobleDevice | null = null;
   let isConnected = false;
   let lastPayloadHex: string | null = null;
-  let eventHandlers: Array<(event: ScaleConnectionEvent) => void> = [];
-  let batteryCharacteristic: any = null;
+  const eventHandlers: Array<(event: ScaleConnectionEvent) => void> = [];
+  let batteryCharacteristic: Characteristic | null = null;
 
   function emit(event: ScaleConnectionEvent) {
     for (const handler of eventHandlers) handler(event);
@@ -43,20 +53,19 @@ export function createScaleConnection(): ScaleConnection {
   async function connect(dev: NobleDevice): Promise<void> {
     device = dev;
     return new Promise((resolve, reject) => {
-      device!.connect(async (err) => {
-        if (err) {
-          emit({ type: 'error', error: err });
-          return reject(err);
+      device!.connect((error?: unknown) => {
+        if (error) {
+          emit({ type: 'error', error: error instanceof Error ? error : new Error(String(error)) });
+          return reject(error);
         }
         isConnected = true;
         emit({ type: 'connected' });
-        try {
-          await setupServices();
-          resolve();
-        } catch (e) {
-          emit({ type: 'error', error: e as Error });
-          reject(e);
-        }
+        setupServices()
+          .then(resolve)
+          .catch((e) => {
+            emit({ type: 'error', error: e as Error });
+            reject(e);
+          });
       });
       device!.on('disconnect', () => {
         isConnected = false;
@@ -87,19 +96,17 @@ export function createScaleConnection(): ScaleConnection {
     }
 
     return new Promise((resolve, reject) => {
-      batteryCharacteristic.read((err: any, data: Buffer) => {
+      batteryCharacteristic!.read((err: Error | null, data: Buffer) => {
         if (err) {
           reject(err);
           return;
         }
-        
         const level = data[0]; // Battery level is first byte (0-100)
         const reading: BatteryReading = {
           level,
           raw: data,
           timestamp: new Date(),
         };
-        
         emit({ type: 'battery', reading });
         resolve(reading);
       });
@@ -109,27 +116,27 @@ export function createScaleConnection(): ScaleConnection {
   async function setupServices(): Promise<void> {
     if (!device) throw new Error('No device connected');
     return new Promise((resolve, reject) => {
-      device!.discoverAllServicesAndCharacteristics((err, services, characteristics) => {
-        if (err) return reject(err);
+      (device as { discoverAllServicesAndCharacteristics: (cb: (error?: unknown, services?: Service[], characteristics?: Characteristic[]) => void) => void }).discoverAllServicesAndCharacteristics((error?: unknown, services?: Service[], characteristics?: Characteristic[]) => {
+        if (error) return reject(error);
         if (!characteristics) return reject(new Error('No characteristics found'));
 
         // Log all available services and characteristics for debugging
-        logger.debug('Available Services', { 
-          services: services?.map((s: any) => ({ uuid: s.uuid, name: s.name || 'Unknown' }))
+        logger.debug('Available Services', {
+          services: services?.map((s) => ({ uuid: s.uuid, name: s.name || 'Unknown' }))
         });
 
-        logger.debug('Available Characteristics', { 
-          characteristics: characteristics.map((c: any) => ({ 
-            uuid: c.uuid, 
-            name: c.name || 'Unknown', 
-            properties: c.properties 
+        logger.debug('Available Characteristics', {
+          characteristics: characteristics.map((c) => ({
+            uuid: c.uuid,
+            name: c.name || 'Unknown',
+            properties: c.properties
           }))
         });
 
         // Setup weight notifications
-        const weightChar = characteristics.find((c: any) =>
+        const weightChar = characteristics.find((c) =>
           String(c.uuid).toLowerCase() === 'ffb2' && c.properties.includes('notify')
-        ) || characteristics.find((c: any) =>
+        ) || characteristics.find((c) =>
           String(c.uuid).toLowerCase() === '2a9d' && c.properties.includes('indicate')
         );
 
@@ -138,7 +145,7 @@ export function createScaleConnection(): ScaleConnection {
         } else {
           logger.info('Found weight characteristic', { uuid: weightChar.uuid });
           weightChar.on('data', (data: Buffer) => handleWeightData(data));
-          weightChar.subscribe((err: any) => {
+          weightChar.subscribe((err?: Error) => {
             if (err) {
               logger.error('Failed to subscribe to weight notifications', { error: err.message });
             } else {
@@ -148,13 +155,13 @@ export function createScaleConnection(): ScaleConnection {
         }
 
         // Setup battery service
-        const batteryService = services?.find((s: any) => String(s.uuid).toLowerCase() === '180f');
+        const batteryService = services?.find((s) => String(s.uuid).toLowerCase() === '180f');
         if (batteryService) {
           logger.info('Found Battery Service');
-          batteryCharacteristic = characteristics.find((c: any) => 
+          batteryCharacteristic = characteristics.find((c) =>
             String(c.uuid).toLowerCase() === '2a19' && c.properties.includes('read')
-          );
-          
+          ) || null;
+
           if (batteryCharacteristic) {
             logger.info('Found Battery Level characteristic');
             // Read initial battery level

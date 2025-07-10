@@ -4,7 +4,7 @@ import { createUIService } from './services/createUIService.js';
 import { NobleDevice } from './types/ble.js';
 import { logger } from './utils/logger.js';
 
-export function createApp(): { halt: () => Promise<void> } {
+export function createApplication(): { halt: () => Promise<void> } {
   // create services
   const bluetoothService = createBluetoothService();
   const scaleConnection = createScaleConnection();

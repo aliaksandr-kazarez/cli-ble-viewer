@@ -21,7 +21,7 @@ export function extractManufacturerInfo(manufacturerData: Buffer | undefined): {
         company: result.company
       };
     }
-  } catch (error) {
+  } catch {
     // If parsing fails, try to extract just the manufacturer ID from the first 2 bytes
     try {
       const manufacturerId = manufacturerData.readUInt16LE(0);
@@ -29,7 +29,7 @@ export function extractManufacturerInfo(manufacturerData: Buffer | undefined): {
         id: manufacturerId,
         company: `Unknown (${manufacturerId.toString(16).padStart(4, '0')})`
       };
-    } catch (fallbackError) {
+    } catch {
       // If even the fallback fails, return null
       return null;
     }
@@ -58,7 +58,7 @@ export function getManufacturerId(manufacturerData: Buffer | undefined): string 
     // Fallback: extract just the ID from first 2 bytes
     const manufacturerId = manufacturerData.readUInt16LE(0);
     return `mfg-${manufacturerId}`;
-  } catch (error) {
+  } catch {
     // If all else fails, use a hash of the first few bytes
     const hash = manufacturerData.toString('hex').substring(0, 8);
     return `mfg-${hash}`;
@@ -84,7 +84,7 @@ export function getManufacturerName(manufacturerData: Buffer | undefined): strin
     // Fallback: show the manufacturer ID
     const manufacturerId = manufacturerData.readUInt16LE(0);
     return `Unknown (0x${manufacturerId.toString(16).padStart(4, '0')})`;
-  } catch (error) {
+  } catch {
     return 'Unknown';
   }
 } 
