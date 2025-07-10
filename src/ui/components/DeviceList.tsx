@@ -42,7 +42,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
       ...devices.map(d => {
         const mfg = d.advertisement.manufacturerData;
         const mfgStr = mfg ? 
-          (mfg.toString('hex').length > 22 ? mfg.toString('hex').substring(0, 22) + '…' : mfg.toString('hex')) : '';
+          (mfg.toString('hex').length > 40 ? mfg.toString('hex').substring(0, 40) + '…' : mfg.toString('hex')) : '';
         return mfgStr.length;
       })
     );
@@ -59,7 +59,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
       nameWidth: Math.max(nameWidth, 15), 
       addressWidth: Math.max(addressWidth, 12), 
       servicesWidth: Math.max(servicesWidth, 16), // Increased from 10 to 16
-      mfgWidth: Math.max(mfgWidth, 32), // Increased from 12 to 32
+      mfgWidth: Math.max(mfgWidth, 42), // Increased from 32 to 42
       txWidth: Math.max(txWidth, 8) 
     };
   };
@@ -114,7 +114,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
             ? (serviceUuids[0].length > 12 ? serviceUuids[0].substring(0, 12) + '…' : serviceUuids[0])
             : '';
           const mfgStr = manufacturerData ? 
-            (manufacturerData.toString('hex').length > 22 ? manufacturerData.toString('hex').substring(0, 22) + '…' : manufacturerData.toString('hex')) : '';
+            (manufacturerData.toString('hex').length > 40 ? manufacturerData.toString('hex').substring(0, 40) + '…' : manufacturerData.toString('hex')) : '';
           const txStr = txPowerLevel !== undefined ? `${txPowerLevel}dBm` : '';
           
           const prefix = isSelected ? '▶ ' : '  ';
