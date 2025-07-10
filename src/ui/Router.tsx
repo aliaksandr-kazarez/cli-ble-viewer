@@ -1,32 +1,93 @@
-import { useState } from 'react';
-import { Box, Text } from 'ink';
-type ScreenState = 'device-list' | 'connecting' | 'connected' | 'error';
+import { createContext, useCallback, useContext, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
+import { DeviceList } from './components/DeviceList';
 
-interface AppProps {
-  // devices: NobleDevice[];
-  // onDeviceSelect: (device: NobleDevice) => void;
-  // selectedDevice?: NobleDevice;
-  // isConnected: boolean;
-  // lastWeight?: ScaleWeightReading;
-  // batteryLevel?: number;
-  // connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
-  // onExit: () => void;
-  // onBatteryRead?: () => void;
+export type Screens = 'device-list' | 'connecting' | 'connected' | 'error';
+
+export interface RouterState {
+  screen: Screens;
+  params: Record<string, any>;
+  navigateTo: (screen: Screens, params?: Record<string, any>) => void;
 }
 
-export function App({ 
-  // devices, 
-  // onDeviceSelect, 
-  // selectedDevice, 
-  // isConnected, 
-  // lastWeight, 
-  // batteryLevel, 
-  // connectionStatus, 
-  // onExit,
-  // onBatteryRead
-}: AppProps) {
+export const RouterContext = createContext<RouterState>({ screen: 'device-list', params: {}, navigateTo: () => {} });
+
+export function useRouter(): RouterState {
+  return useContext(RouterContext);
+}
+
+export function Router() {
   // const [selectedIndex, setSelectedIndex] = useState(0);
-  const [currentScreen, _] = useState<ScreenState>('device-list');
+  const [screen, setScreen] = useState<Screens>('device-list');
+  const [params, setParams] = useState<Record<string, any>>({});
+
+  const navigateTo = useCallback(function navigateTo(screen: Screens, params: Record<string, any> = {}) {
+    setScreen(screen);
+    setParams(params);
+  }, []);
+
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Box>
+        <Text color="cyan" bold>⚖️ Gourmetmiles Smart Scale BLE Client</Text>
+      </Box>
+
+      <RouterContext.Provider value={{ screen, params, navigateTo }}>
+        {renderScreen(screen)}
+      </RouterContext.Provider>
+
+      <Box>
+        <Text color="gray">{renderHelpText(screen)}</Text>
+      </Box>
+    </Box>
+  );
+} 
+
+function renderHelpText(screen: Screens): string {
+  switch (screen) {
+    case 'device-list':
+      return '↑↓ Select • Enter Connect • Q Exit';
+    case 'connecting':
+      return Connecting.helpText;
+    case 'connected':
+      return 'B Battery • Q Exit';
+    case 'error':
+      return 'Q Exit • Try selecting another device';
+    default:
+      return '';
+  }
+};
+
+
+function renderScreen(screen: Screens): React.ReactNode {
+  switch (screen) {
+    case 'device-list':
+      return <DeviceList />;
+    case 'connecting':
+      return <Connecting />;
+    case 'connected':
+      return <Connected />;
+    case 'error':
+      return <Error />;
+  }
+};
+
+function Connecting() {
+  const { navigateTo } = useRouter();
+  
+  useInput((input, key) => {
+    if (key.escape || (input === 'q' || input === 'Q')) {
+      navigateTo('device-list');
+    }
+  });
+  return <Text>Connecting...</Text>;
+}
+
+Connecting.helpText = 'Q Cancel';
+
+const Connected = Connecting;
+const Error = Connecting;
+
 
   // // Update screen state based on connection status and selected device
   // useEffect(() => {
@@ -87,61 +148,3 @@ export function App({
   //     setSelectedIndex(0);
   //   }
   // }, [devices.length, selectedIndex]);
-
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'device-list':
-        // return (
-          // <DeviceList 
-          //   devices={devices} 
-          //   selectedIndex={selectedIndex} 
-          //   onDeviceSelect={onDeviceSelect} 
-          // />
-        // );
-      case 'connecting':
-      case 'connected':
-      case 'error':
-        // return (
-          // <ScaleInfo 
-          //   deviceName={selectedDevice?.advertisement.localName || '(no name)'}
-          //   deviceAddress={selectedDevice?.address || '(no address)'}
-          //   isConnected={isConnected}
-          //   lastWeight={lastWeight}
-          //   batteryLevel={batteryLevel}
-          //   connectionStatus={connectionStatus}
-          // />
-        // );
-      default:
-        return null;
-    }
-  };
-
-  const renderHelpText = () => {
-    switch (currentScreen) {
-      case 'device-list':
-        return '↑↓ Select • Enter Connect • Q Exit';
-      case 'connecting':
-        return 'Connecting... • Q Cancel';
-      case 'connected':
-        return 'B Battery • Ctrl-C Disconnect • Q Exit';
-      case 'error':
-        return 'Q Exit • Try selecting another device';
-      default:
-        return '';
-    }
-  };
-
-  return (
-    <Box flexDirection="column" padding={1}>
-      <Box>
-        <Text color="cyan" bold>⚖️ Gourmetmiles Smart Scale BLE Client</Text>
-      </Box>
-      
-      {renderScreen()}
-      
-      <Box>
-        <Text color="gray">{renderHelpText()}</Text>
-      </Box>
-    </Box>
-  );
-} 

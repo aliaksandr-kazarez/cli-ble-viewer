@@ -1,14 +1,25 @@
 import { Box, Text } from 'ink';
 import { NobleDevice } from '../../types/ble.js';
 import { getManufacturerName } from '../../utils/manufacturer.js';
+import { useCallback, useState } from 'react';
+// import { useRouter } from '../Router.js';
 
-interface DeviceListProps {
-  devices: NobleDevice[];
-  selectedIndex: number;
-  onDeviceSelect: (device: NobleDevice) => void;
-}
+export function DeviceList() {
+  // create state
+  // interface DeviceListProps {
+  //   devices: NobleDevice[];
+  //   selectedIndex: number;
+  //   onDeviceSelect: (device: NobleDevice) => void;
+  // }
 
-export function DeviceList({ devices, selectedIndex }: DeviceListProps) {
+  const [devices] = useState<NobleDevice[]>([]);
+  const [selectedIndex] = useState<number>(0);
+  // const { navigateTo } = useRouter();
+  // const onDeviceSelect = useCallback((device: NobleDevice) => {
+  //   navigateTo('connecting', { device });
+  // }, []);
+
+
   if (devices.length === 0) {
     return (
       <Box flexDirection="column">

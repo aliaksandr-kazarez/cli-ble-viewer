@@ -1,4 +1,4 @@
-import { App } from './components/App.js';
+import { Router } from './Router.js';
 import { BluetoothService } from '../services/bluetoothService.js';
 import { ServiceProvider } from './ServiceProvider.js';
 
@@ -10,7 +10,7 @@ export function Application({ bluetoothService }: ApplicationProps) {
   // Expose updateState function globally
   return (
     <ServiceProvider service={{ bluetoothService }}>
-      <App />
+      <Router />
     </ServiceProvider>
   );
 }
