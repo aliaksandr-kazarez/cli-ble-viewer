@@ -14,7 +14,7 @@ export interface InkUIState {
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error'; 
 }
 
-function InkApp() {
+export function InkApp() {
   const [state, setState] = useState<InkUIState>({
     devices: [],
     isConnected: false,
@@ -73,53 +73,3 @@ function InkApp() {
   });
 }
 
-export function createInkUI() {
-  let hasStarted = false;
-
-  function start() {
-    if (hasStarted) {
-      return; // Prevent multiple renders
-    }
-    hasStarted = true;
-    render(React.createElement(InkApp), {
-      stdout: process.stdout,
-      stdin: process.stdin
-    });
-  }
-
-  function updateState(newState: Partial<InkUIState>) {
-    if ((global as any).updateInkState) {
-      (global as any).updateInkState(newState);
-    }
-  }
-
-  function setDeviceSelectHandler(handler: (device: NobleDevice) => void) {
-    logger.debug('Setting device select handler');
-    if ((global as any).setInkDeviceSelectHandler) {
-      (global as any).setInkDeviceSelectHandler(handler);
-      logger.debug('Device select handler set successfully');
-    } else {
-      logger.debug('setInkDeviceSelectHandler not available yet');
-    }
-  }
-
-  function setExitHandler(handler: () => void) {
-    if ((global as any).setInkExitHandler) {
-      (global as any).setInkExitHandler(handler);
-    }
-  }
-
-  function setBatteryReadHandler(handler: () => void) {
-    if ((global as any).setInkBatteryReadHandler) {
-      (global as any).setInkBatteryReadHandler(handler);
-    }
-  }
-
-  return {
-    start,
-    updateState,
-    setDeviceSelectHandler,
-    setExitHandler,
-    setBatteryReadHandler,
-  };
-} 

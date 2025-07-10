@@ -1,2 +1,2 @@
-export * from './appService.js';
+export * from '../createApp.js';
 export * from './bluetoothService.js'; 

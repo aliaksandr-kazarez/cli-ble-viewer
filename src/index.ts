@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createAppService } from './services/appService.js';
+import { createAppService } from './createApp.js';
 import { logger, setLoggerOutput } from './utils/logger.js';
 
 // Check if raw mode is supported (required for Ink)
