@@ -21,6 +21,7 @@ export interface NobleDevice {
   on: (event: string, callback: (data?: any) => void) => void;
   discoverAllServicesAndCharacteristics: (callback: (error?: any, services?: any[], characteristics?: any[]) => void) => void;
   disconnect: () => void;
+  lastSeen?: number; // Add lastSeen for device pruning
 }
 
 // Extend noble types

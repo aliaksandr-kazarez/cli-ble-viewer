@@ -18,24 +18,107 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
     );
   }
 
+  // Calculate column widths based on content
+  const getColumnWidths = () => {
+    const nameWidth = Math.max(
+      'Device Name'.length,
+      ...devices.map(d => (d.advertisement.localName || '(no name)').length)
+    );
+    const addressWidth = Math.max(
+      'Address'.length,
+      ...devices.map(d => (d.address || '(no address)').length)
+    );
+    const servicesWidth = Math.max(
+      'Services'.length,
+      ...devices.map(d => {
+        const services = d.advertisement.serviceUuids || [];
+        const serviceStr = services.length > 0 ? services.slice(0, 1).join('').substring(0, 8) + '...' : '';
+        return serviceStr.length;
+      })
+    );
+    const mfgWidth = Math.max(
+      'Manufacturer'.length,
+      ...devices.map(d => {
+        const mfg = d.advertisement.manufacturerData;
+        const mfgStr = mfg ? mfg.toString('hex').substring(0, 12) : '';
+        return mfgStr.length;
+      })
+    );
+    const txWidth = Math.max(
+      'TX Power'.length,
+      ...devices.map(d => {
+        const txStr = d.advertisement.txPowerLevel !== undefined ? `${d.advertisement.txPowerLevel}dBm` : '';
+        return txStr.length;
+      })
+    );
+
+    // Add some minimum padding to each column
+    return { 
+      nameWidth: Math.max(nameWidth, 15), 
+      addressWidth: Math.max(addressWidth, 12), 
+      servicesWidth: Math.max(servicesWidth, 10), 
+      mfgWidth: Math.max(mfgWidth, 12), 
+      txWidth: Math.max(txWidth, 8) 
+    };
+  };
+
+  const { nameWidth, addressWidth, servicesWidth, mfgWidth, txWidth } = getColumnWidths();
+
+  const formatCell = (text: string, width: number, align: 'left' | 'right' = 'left') => {
+    const padding = width - text.length;
+    if (align === 'left') {
+      return text + ' '.repeat(Math.max(0, padding));
+    } else {
+      return ' '.repeat(Math.max(0, padding)) + text;
+    }
+  };
+
+  const renderHeader = () => (
+    <Box>
+      <Text color="cyan" bold>
+        {'  '}{formatCell('Device Name', nameWidth)} | {formatCell('Address', addressWidth)} | {formatCell('Services', servicesWidth)} | {formatCell('Manufacturer', mfgWidth)} | {formatCell('TX Power', txWidth)}
+      </Text>
+    </Box>
+  );
+
+  const renderSeparator = () => (
+    <Box>
+      <Text color="gray">
+        {'  '}{'─'.repeat(nameWidth)}┼{'─'.repeat(addressWidth)}┼{'─'.repeat(servicesWidth)}┼{'─'.repeat(mfgWidth)}┼{'─'.repeat(txWidth)}
+      </Text>
+    </Box>
+  );
+
   return (
     <Box flexDirection="column">
       <Text color="cyan" bold>📱 Available Devices ({devices.length})</Text>
       <Text color="gray">Use ↑↓ arrows to select, Enter to connect</Text>
       <Box marginTop={1} flexDirection="column">
+        {renderHeader()}
+        {renderSeparator()}
         {devices.map((device, index) => {
           const localName = device.advertisement.localName || '(no name)';
+          const address = device.address || '(no address)';
+          const serviceUuids = device.advertisement.serviceUuids || [];
+          const manufacturerData = device.advertisement.manufacturerData;
+          const txPowerLevel = device.advertisement.txPowerLevel;
           const isSelected = index === selectedIndex;
-          // Use address if present and unique, otherwise fallback to index
           const key = device.address && device.address.trim() !== '' ? `${device.address}-${index}` : `device-${index}`;
+          
+          // Format data for table with consistent lengths
+          const serviceStr = serviceUuids.length > 0 
+            ? serviceUuids.slice(0, 1).join('').substring(0, 8) + '...' 
+            : '';
+          const mfgStr = manufacturerData ? manufacturerData.toString('hex').substring(0, 12) : '';
+          const txStr = txPowerLevel !== undefined ? `${txPowerLevel}dBm` : '';
+          
+          const prefix = isSelected ? '▶ ' : '  ';
+          
           return (
             <Box key={key} marginY={0}>
               <Text color={isSelected ? 'green' : 'white'}>
-                {isSelected ? '▶ ' : '  '}
-                {localName}
-              </Text>
-              <Text color="gray">
-                {'  '}({device.address})
+                {prefix}
+                {formatCell(localName, nameWidth)} | {formatCell(address, addressWidth)} | {formatCell(serviceStr, servicesWidth)} | {formatCell(mfgStr, mfgWidth)} | {formatCell(txStr, txWidth)}
               </Text>
             </Box>
           );

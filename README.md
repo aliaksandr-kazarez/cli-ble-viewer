@@ -37,6 +37,37 @@ A Node.js BLE client for connecting to Gourmetmiles smart scales and reading wei
    - **Q**: Exit the application
    - **Ctrl-C**: Disconnect and exit (when connected)
 
+## Development with Live Reload
+
+The app supports several development modes with automatic restart when you make changes:
+
+### Standard Development (with TypeScript compilation)
+```bash
+npm run dev              # Full logging
+npm run dev:clean        # No logging (clean UI)
+npm run dev:file         # Log to file
+npm run dev:debug        # Debug mode
+```
+
+### Fast Development (no compilation step)
+```bash
+npm run dev:fast         # Fast restart with full logging
+npm run dev:fast:clean   # Fast restart with clean UI
+```
+
+### Features:
+- **Auto-restart**: App restarts automatically when you save changes
+- **File watching**: Monitors `.ts`, `.tsx`, `.js`, `.jsx`, and `.json` files
+- **Smart restart**: Only restarts when necessary
+- **Manual restart**: Type `rs` and press Enter to restart manually
+- **Clean shutdown**: Properly handles BLE connections during restart
+
+### Tips for Development:
+- Use `npm run dev:clean` for a clean UI during development
+- Use `npm run dev:fast` for faster iteration (no TypeScript compilation)
+- The app will automatically reconnect to your scale after restart
+- Check the terminal for restart notifications
+
 ## Troubleshooting
 
 - **"No scale found"**: Ensure scale is powered on and advertising

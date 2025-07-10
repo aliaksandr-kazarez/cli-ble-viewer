@@ -22,6 +22,7 @@ function InkApp() {
   
   const [onDeviceSelect, setOnDeviceSelect] = useState<((device: NobleDevice) => void) | undefined>();
   const [onExit, setOnExit] = useState<(() => void) | undefined>();
+  const [onBatteryRead, setOnBatteryRead] = useState<(() => void) | undefined>();
 
   // Expose updateState function globally
   (global as any).updateInkState = (newState: Partial<InkUIState>) => {
@@ -36,6 +37,11 @@ function InkApp() {
   // Expose setExitHandler globally
   (global as any).setInkExitHandler = (handler: () => void) => {
     setOnExit(() => handler);
+  };
+
+  // Expose setBatteryReadHandler globally
+  (global as any).setInkBatteryReadHandler = (handler: () => void) => {
+    setOnBatteryRead(() => handler);
   };
 
   return React.createElement(App, {
@@ -54,13 +60,31 @@ function InkApp() {
       if (onExit) {
         onExit();
       }
+    },
+    onBatteryRead: () => {
+      if (onBatteryRead) {
+        onBatteryRead();
+      }
     }
   });
 }
 
 export function createInkUI() {
+  let hasStarted = false;
+
   function start() {
-    render(React.createElement(InkApp));
+    if (hasStarted) {
+      return; // Prevent multiple renders
+    }
+    hasStarted = true;
+    
+    render(React.createElement(InkApp), {
+      // Ensure proper terminal handling
+      stdout: process.stdout,
+      stdin: process.stdin,
+      exitOnCtrlC: false, // We handle this ourselves
+      patchConsole: false, // Don't patch console to avoid conflicts
+    });
   }
 
   function updateState(newState: Partial<InkUIState>) {
@@ -81,10 +105,17 @@ export function createInkUI() {
     }
   }
 
+  function setBatteryReadHandler(handler: () => void) {
+    if ((global as any).setInkBatteryReadHandler) {
+      (global as any).setInkBatteryReadHandler(handler);
+    }
+  }
+
   return {
     start,
     updateState,
     setDeviceSelectHandler,
     setExitHandler,
+    setBatteryReadHandler,
   };
 } 

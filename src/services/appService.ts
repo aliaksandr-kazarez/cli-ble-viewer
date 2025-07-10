@@ -51,6 +51,17 @@ export function createAppService() {
       process.exit(0);
     });
 
+    inkUI.setBatteryReadHandler(async () => {
+      try {
+        const batteryReading = await scaleConnection.readBattery();
+        if (batteryReading) {
+          inkUI.updateState({ batteryLevel: batteryReading.level });
+        }
+      } catch (error) {
+        logger.error('Failed to read battery', { error: (error as Error).message });
+      }
+    });
+
     inkUI.start();
   }
 
@@ -67,22 +78,52 @@ export function createAppService() {
 
   function handleDeviceDiscover(device: NobleDevice) {
     const localName = device.advertisement.localName || '(no name)';
+    const now = Date.now();
     
-    // Add to discovered devices if not already present
-    const existingIndex = discoveredDevices.findIndex(d => d.address === device.address);
+    // Create a better unique identifier that handles empty addresses
+    const createDeviceId = (dev: NobleDevice) => {
+      const name = dev.advertisement.localName || '(no name)';
+      const address = dev.address || 'unknown';
+      const serviceUuids = dev.advertisement.serviceUuids || [];
+      const manufacturerData = dev.advertisement.manufacturerData;
+      return `${name}-${address}-${serviceUuids.join(',')}-${manufacturerData ? manufacturerData.toString('hex').substring(0, 8) : 'no-manufacturer'}`;
+    };
+    
+    const deviceId = createDeviceId(device);
+    
+    // Add or update device with lastSeen timestamp
+    const existingIndex = discoveredDevices.findIndex(d => createDeviceId(d) === deviceId);
     if (existingIndex >= 0) {
-      // Update existing device
-      discoveredDevices[existingIndex] = device;
+      discoveredDevices[existingIndex] = { ...device, lastSeen: now };
     } else {
-      // Add new device
-      discoveredDevices.push(device);
+      discoveredDevices.push({ ...device, lastSeen: now });
+      // Only log new devices, not every discovery
+      logger.info('New device discovered', { 
+        name: localName, 
+        address: device.address || 'empty',
+        services: device.advertisement.serviceUuids?.length || 0,
+        totalDevices: discoveredDevices.length
+      });
+    }
+    
+    // Remove devices not seen in the last 5 seconds
+    const cutoff = now - 5000;
+    const beforePrune = discoveredDevices.length;
+    discoveredDevices = discoveredDevices.filter(d => (d as any).lastSeen >= cutoff);
+    const afterPrune = discoveredDevices.length;
+    
+    // Only log pruning if devices were actually removed
+    if (beforePrune !== afterPrune && beforePrune - afterPrune > 0) {
+      logger.debug('Removed stale devices', { 
+        removed: beforePrune - afterPrune,
+        remaining: afterPrune
+      });
     }
     
     // Debounce UI updates to prevent flickering
     if (updateTimeout) {
       clearTimeout(updateTimeout);
     }
-    
     updateTimeout = setTimeout(() => {
       inkUI.updateState({ devices: [...discoveredDevices] });
     }, 100); // 100ms debounce
@@ -147,30 +188,7 @@ export function createAppService() {
       }
     }, 1000);
 
-    // Handle keyboard input for battery reading
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', async (key) => {
-      const keyStr = key.toString();
-      if (keyStr === 'b' || keyStr === 'B') {
-        try {
-          const batteryReading = await scaleConnection.readBattery();
-          if (batteryReading) {
-            inkUI.updateState({ batteryLevel: batteryReading.level });
-          }
-        } catch (error) {
-          logger.error('Failed to read battery', { error: (error as Error).message });
-        }
-      } else if (keyStr === '\u0003') { // Ctrl-C
-        logger.info('Disconnecting...');
-        clearInterval(connectionCheck);
-        scaleConnection.disconnect();
-        cleanup();
-        process.exit(0);
-      }
-    });
-
+    // Let Ink handle all keyboard input to prevent screen clearing
     process.on('SIGINT', () => {
       logger.info('Disconnecting...');
       clearInterval(connectionCheck);
@@ -185,8 +203,6 @@ export function createAppService() {
     if (updateTimeout) {
       clearTimeout(updateTimeout);
     }
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
   }
 
   return {

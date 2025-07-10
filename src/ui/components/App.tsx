@@ -14,6 +14,7 @@ interface AppProps {
   batteryLevel?: number;
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
   onExit: () => void;
+  onBatteryRead?: () => void;
 }
 
 export function App({ 
@@ -24,11 +25,13 @@ export function App({
   lastWeight, 
   batteryLevel, 
   connectionStatus, 
-  onExit 
+  onExit,
+  onBatteryRead
 }: AppProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useInput((input, key) => {
+    // Only handle specific keys to prevent screen clearing
     if (key.upArrow && selectedIndex > 0) {
       setSelectedIndex(selectedIndex - 1);
     } else if (key.downArrow && selectedIndex < devices.length - 1) {
@@ -37,7 +40,10 @@ export function App({
       onDeviceSelect(devices[selectedIndex]);
     } else if (key.escape || (input === 'q' || input === 'Q')) {
       onExit();
+    } else if ((input === 'b' || input === 'B') && onBatteryRead) {
+      onBatteryRead();
     }
+    // Ignore all other input to prevent screen clearing
   });
 
   // Reset selection when devices change
@@ -72,7 +78,7 @@ export function App({
       
       <Box>
         <Text color="gray">
-          {!selectedDevice ? '↑↓ Select • Enter Connect • Q Exit' : 'Ctrl-C Disconnect'}
+          {!selectedDevice ? '↑↓ Select • Enter Connect • Q Exit' : 'B Battery • Ctrl-C Disconnect'}
         </Text>
       </Box>
     </Box>
