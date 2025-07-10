@@ -83,8 +83,7 @@ export function createNullStream(): Writable {
   });
 }
 
-// Create default logger instances
-export const consoleLogger = createLogger(process.stderr);
+// Create logger instances
 export const fileLogger = createLogger(createWriteStream('/dev/null')); // Placeholder, will be set up properly when needed
 export const nullLogger = createLogger(createNullStream());
 
@@ -92,14 +91,11 @@ export const nullLogger = createLogger(createNullStream());
 export let logger = nullLogger;
 
 // Function to switch logger output
-export function setLoggerOutput(output: 'console' | 'file' | 'null', filename?: string): void {
+export function setLoggerOutput(output: 'file' | 'null', filename?: string): void {
   switch (output) {
-    case 'console':
-      logger = consoleLogger;
-      break;
     case 'file':
-      // Create a temporary console logger while we set up the file logger
-      logger = consoleLogger;
+      // Create a temporary null logger while we set up the file logger
+      logger = nullLogger;
       
       const targetFilename = filename || 'app.log';
       createFileStream(targetFilename).then(stream => {
@@ -108,8 +104,8 @@ export function setLoggerOutput(output: 'console' | 'file' | 'null', filename?: 
         logger.info('Switched to file logging', { file: targetFilename });
       }).catch(error => {
         console.error('Failed to create file logger:', error);
-        // Keep using console logger if file creation fails
-        logger = consoleLogger;
+        // Keep using null logger if file creation fails
+        logger = nullLogger;
       });
       break;
     case 'null':

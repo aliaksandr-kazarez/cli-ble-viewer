@@ -12,7 +12,7 @@ function isRawModeSupported(): boolean {
 function parseArgs() {
   const args = process.argv.slice(2);
   const options: {
-    logOutput: 'console' | 'file' | 'null';
+    logOutput: 'file' | 'null';
     logFile?: string;
     debug: boolean;
   } = {
@@ -52,14 +52,13 @@ Options:
 
 Environment Variables:
   DEBUG=true                            Enable debug logging
-  LOG_OUTPUT=console|file|null          Set logging output
+  LOG_OUTPUT=file|null                  Set logging output
   LOG_FILE=<filename>                   Set log filename (when LOG_OUTPUT=file)
 
 Examples:
-  npm start                             # Console logging
   npm start --log-file scale.log        # Log to scale.log
   npm start --no-logs                   # No logging
-  npm start --debug                     # Debug mode with console logging
+  npm start --debug                     # Debug mode with file logging
         `);
         process.exit(0);
     }
@@ -73,12 +72,16 @@ function setupLogging() {
   const args = parseArgs();
   
   // Environment variables take precedence
-  const logOutput = (process.env.LOG_OUTPUT as 'console' | 'file' | 'null') || args.logOutput;
+  let logOutput = (process.env.LOG_OUTPUT as 'file' | 'null') || args.logOutput;
   const logFile = process.env.LOG_FILE || args.logFile;
   const debug = process.env.DEBUG === 'true' || args.debug;
   
   if (debug) {
     process.env.DEBUG = 'true';
+    // If debug is enabled but no file logging is specified, default to file logging
+    if (logOutput === 'null' && !process.env.LOG_OUTPUT) {
+      logOutput = 'file';
+    }
   }
   
   setLoggerOutput(logOutput, logFile);

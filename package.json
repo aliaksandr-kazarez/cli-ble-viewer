@@ -10,6 +10,7 @@
     "dev": "tsx --watch src/index.ts",
     "dev:log": "tsx --watch src/index.ts --log-file logs/app.log",
     "dev:debug": "tsx --watch src/index.ts --log-file logs/debug.log --debug",
+    "dev:clean": "tsx --watch src/index.ts --no-logs",
     "live": "tsx --watch src/index.ts",
     "clean": "rm -rf dist node_modules package-lock.json && npm install"
   },
