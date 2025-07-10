@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Text } from 'ink';
 import { NobleDevice } from '../../types/ble.js';
 import { getManufacturerName } from '../../utils/manufacturer.js';
@@ -9,7 +8,7 @@ interface DeviceListProps {
   onDeviceSelect: (device: NobleDevice) => void;
 }
 
-export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceListProps) {
+export function DeviceList({ devices, selectedIndex }: DeviceListProps) {
   if (devices.length === 0) {
     return (
       <Box flexDirection="column">

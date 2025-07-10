@@ -17,7 +17,6 @@ export async function createApplication(): Promise<Application> {
     stdin: process.stdin
   });
 
-
   return {
     halt: async () => {
       await bluetoothService.stop();

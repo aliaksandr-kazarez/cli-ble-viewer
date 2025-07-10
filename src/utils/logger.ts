@@ -75,19 +75,9 @@ export async function createFileStream(filename: string): Promise<Writable> {
   return createWriteStream(filePath, { flags: 'a' }); // 'a' for append mode
 }
 
-// Helper function to create a null stream (no output)
-export function createNullStream(): Writable {
-  return new Writable({
-    write(chunk, encoding, callback) {
-      // Do nothing - discard all output
-      callback();
-    }
-  });
-}
-
 // Create logger instances
-export const fileLogger = createLogger(createWriteStream('/dev/null')); // Placeholder, will be set up properly when needed
-export const nullLogger = createLogger(createNullStream());
+export const nullLogger = createLogger(createWriteStream('/dev/null'));
+export const fileLogger = nullLogger; // Placeholder, will be set up properly when needed
 
 // Default logger (can be changed at runtime)
 export let logger = nullLogger;

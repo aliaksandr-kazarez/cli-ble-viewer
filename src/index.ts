@@ -2,6 +2,7 @@
 
 import { logger, setLoggerOutput } from './utils/logger.js';
 import { parseArgs } from './utils/args.js';
+import { createApplication } from './createApplication.js';
 
 // Check if raw mode is supported (required for Ink)
 function isRawModeSupported(): boolean {
