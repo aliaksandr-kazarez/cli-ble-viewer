@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-26",
+    "ble-manufacturer-data-parser": "^1.0.1",
     "ink": "^6.0.1",
     "react": "^19.1.0"
   },

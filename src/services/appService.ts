@@ -3,6 +3,7 @@ import { createScaleConnection, ScaleConnectionEvent } from '../scales/scaleConn
 import { createInkUI } from '../ui/inkUI.js';
 import { NobleDevice } from '../types/ble.js';
 import { logger } from '../utils/logger.js';
+import { getManufacturerId } from '../utils/manufacturer.js';
 
 export function createAppService() {
   const bluetoothService = createBluetoothService();
@@ -80,28 +81,38 @@ export function createAppService() {
     const localName = device.advertisement.localName || '(no name)';
     const now = Date.now();
     
-    // Create a better unique identifier that handles empty addresses
+    // Create a better unique identifier that includes manufacturer ID
     const createDeviceId = (dev: NobleDevice) => {
       const name = dev.advertisement.localName || '(no name)';
       const address = dev.address || 'unknown';
       const serviceUuids = dev.advertisement.serviceUuids || [];
-      const manufacturerData = dev.advertisement.manufacturerData;
-      return `${name}-${address}-${serviceUuids.join(',')}-${manufacturerData ? manufacturerData.toString('hex').substring(0, 8) : 'no-manufacturer'}`;
+      const manufacturerId = getManufacturerId(dev.advertisement.manufacturerData);
+      
+      // If we have a valid address, use it as primary identifier
+      if (address && address !== 'unknown' && address.trim() !== '') {
+        return `addr-${address}-${manufacturerId}`;
+      }
+      
+      // Otherwise use a combination of other stable identifiers including manufacturer ID
+      return `name-${name}-services-${serviceUuids.join(',')}-${manufacturerId}`;
     };
     
     const deviceId = createDeviceId(device);
     
-    // Add or update device with lastSeen timestamp
+    // Add or update device with lastSeen timestamp, and track firstSeen
     const existingIndex = discoveredDevices.findIndex(d => createDeviceId(d) === deviceId);
     if (existingIndex >= 0) {
-      discoveredDevices[existingIndex] = { ...device, lastSeen: now };
+      // Only update lastSeen, preserve firstSeen
+      const existingDevice = discoveredDevices[existingIndex];
+      discoveredDevices[existingIndex] = { ...device, lastSeen: now, firstSeen: (existingDevice as any).firstSeen || now };
     } else {
-      discoveredDevices.push({ ...device, lastSeen: now });
+      discoveredDevices.push({ ...device, lastSeen: now, firstSeen: now });
       // Only log new devices, not every discovery
       logger.info('New device discovered', { 
         name: localName, 
         address: device.address || 'empty',
         services: device.advertisement.serviceUuids?.length || 0,
+        manufacturerId: getManufacturerId(device.advertisement.manufacturerData),
         totalDevices: discoveredDevices.length
       });
     }
@@ -125,7 +136,9 @@ export function createAppService() {
       clearTimeout(updateTimeout);
     }
     updateTimeout = setTimeout(() => {
-      inkUI.updateState({ devices: [...discoveredDevices] });
+      // Sort devices by firstSeen (ascending)
+      const sortedDevices = [...discoveredDevices].sort((a, b) => ((a as any).firstSeen || 0) - ((b as any).firstSeen || 0));
+      inkUI.updateState({ devices: sortedDevices });
     }, 100); // 100ms debounce
   }
 

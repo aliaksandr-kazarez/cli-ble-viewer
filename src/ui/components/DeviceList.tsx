@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { NobleDevice } from '../../types/ble.js';
+import { getManufacturerName } from '../../utils/manufacturer.js';
 
 interface DeviceListProps {
   devices: NobleDevice[];
@@ -40,10 +41,8 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
     const mfgWidth = Math.max(
       'Manufacturer'.length,
       ...devices.map(d => {
-        const mfg = d.advertisement.manufacturerData;
-        const mfgStr = mfg ? 
-          (mfg.toString('hex').length > 40 ? mfg.toString('hex').substring(0, 40) + '…' : mfg.toString('hex')) : '';
-        return mfgStr.length;
+        const mfgName = getManufacturerName(d.advertisement.manufacturerData);
+        return mfgName.length;
       })
     );
     const txWidth = Math.max(
@@ -59,7 +58,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
       nameWidth: Math.max(nameWidth, 15), 
       addressWidth: Math.max(addressWidth, 12), 
       servicesWidth: Math.max(servicesWidth, 16), // Increased from 10 to 16
-      mfgWidth: Math.max(mfgWidth, 42), // Increased from 32 to 42
+      mfgWidth: Math.max(mfgWidth, 25), // Adjusted for manufacturer names
       txWidth: Math.max(txWidth, 8) 
     };
   };
@@ -104,7 +103,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
           const localName = device.advertisement.localName || '(no name)';
           const address = device.address || '(no address)';
           const serviceUuids = device.advertisement.serviceUuids || [];
-          const manufacturerData = device.advertisement.manufacturerData;
+          const manufacturerName = getManufacturerName(device.advertisement.manufacturerData);
           const txPowerLevel = device.advertisement.txPowerLevel;
           const isSelected = index === selectedIndex;
           const key = device.address && device.address.trim() !== '' ? `${device.address}-${index}` : `device-${index}`;
@@ -113,8 +112,7 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
           const serviceStr = serviceUuids.length > 0 
             ? (serviceUuids[0].length > 12 ? serviceUuids[0].substring(0, 12) + '…' : serviceUuids[0])
             : '';
-          const mfgStr = manufacturerData ? 
-            (manufacturerData.toString('hex').length > 40 ? manufacturerData.toString('hex').substring(0, 40) + '…' : manufacturerData.toString('hex')) : '';
+          const mfgStr = manufacturerName;
           const txStr = txPowerLevel !== undefined ? `${txPowerLevel}dBm` : '';
           
           const prefix = isSelected ? '▶ ' : '  ';
