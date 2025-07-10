@@ -46,15 +46,30 @@ export function createLogger(outputStream: Writable) {
 
 // Helper function to create a file stream
 export async function createFileStream(filename: string): Promise<Writable> {
-  // Ensure logs directory exists
-  const logsDir = join(process.cwd(), 'logs');
-  try {
-    await mkdir(logsDir, { recursive: true });
-  } catch (error) {
-    // Directory might already exist, ignore error
+  // Handle both relative and absolute paths
+  let filePath: string;
+  
+  if (filename.includes('/') || filename.includes('\\')) {
+    // If filename contains path separators, treat it as a full path
+    filePath = filename;
+    // Ensure the directory exists
+    const dir = filename.substring(0, filename.lastIndexOf('/'));
+    try {
+      await mkdir(dir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist, ignore error
+    }
+  } else {
+    // If filename is just a name, put it in the logs directory
+    const logsDir = join(process.cwd(), 'logs');
+    try {
+      await mkdir(logsDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist, ignore error
+    }
+    filePath = join(logsDir, filename);
   }
   
-  const filePath = join(logsDir, filename);
   return createWriteStream(filePath, { flags: 'a' }); // 'a' for append mode
 }
 
@@ -83,21 +98,19 @@ export function setLoggerOutput(output: 'console' | 'file' | 'null', filename?: 
       logger = consoleLogger;
       break;
     case 'file':
-      if (filename) {
-        createFileStream(filename).then(stream => {
-          logger = createLogger(stream);
-        }).catch(error => {
-          console.error('Failed to create file logger:', error);
-          logger = consoleLogger;
-        });
-      } else {
-        createFileStream('app.log').then(stream => {
-          logger = createLogger(stream);
-        }).catch(error => {
-          console.error('Failed to create file logger:', error);
-          logger = consoleLogger;
-        });
-      }
+      // Create a temporary console logger while we set up the file logger
+      logger = consoleLogger;
+      
+      const targetFilename = filename || 'app.log';
+      createFileStream(targetFilename).then(stream => {
+        logger = createLogger(stream);
+        // Log that we've switched to file logging
+        logger.info('Switched to file logging', { file: targetFilename });
+      }).catch(error => {
+        console.error('Failed to create file logger:', error);
+        // Keep using console logger if file creation fails
+        logger = consoleLogger;
+      });
       break;
     case 'null':
       logger = nullLogger;

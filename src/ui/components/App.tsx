@@ -5,6 +5,8 @@ import { ScaleInfo } from './ScaleInfo.js';
 import { NobleDevice } from '../../types/ble.js';
 import { ScaleWeightReading } from '../../scales/scaleConnectionService.js';
 
+type ScreenState = 'device-list' | 'connecting' | 'connected' | 'error';
+
 interface AppProps {
   devices: NobleDevice[];
   onDeviceSelect: (device: NobleDevice) => void;
@@ -29,23 +31,46 @@ export function App({
   onBatteryRead
 }: AppProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>('device-list');
+
+  // Update screen state based on connection status and selected device
+  useEffect(() => {
+    if (connectionStatus === 'disconnected' && !selectedDevice) {
+      setCurrentScreen('device-list');
+    } else if (connectionStatus === 'connecting') {
+      setCurrentScreen('connecting');
+    } else if (connectionStatus === 'connected') {
+      setCurrentScreen('connected');
+    } else if (connectionStatus === 'error') {
+      setCurrentScreen('error');
+    }
+  }, [connectionStatus, selectedDevice]);
 
   useInput((input, key) => {
-    // Only handle specific keys to prevent screen clearing
-    if (key.upArrow && selectedIndex > 0) {
-      setSelectedIndex(selectedIndex - 1);
-    } else if (key.downArrow && selectedIndex < devices.length - 1) {
-      setSelectedIndex(selectedIndex + 1);
-    } else if (key.return && devices.length > 0) {
-      onDeviceSelect(devices[selectedIndex]);
-    } else if (key.escape || (input === 'q' || input === 'Q')) {
-      onExit();
-    } else if ((input === 'b' || input === 'B') && onBatteryRead) {
-      onBatteryRead();
-    } else if (input === '\u0003') { // Ctrl+C
-      onExit();
+    // Handle navigation based on current screen
+    if (currentScreen === 'device-list') {
+      // Device List Screen Controls
+      if (key.upArrow && selectedIndex > 0) {
+        setSelectedIndex(selectedIndex - 1);
+      } else if (key.downArrow && selectedIndex < devices.length - 1) {
+        setSelectedIndex(selectedIndex + 1);
+      } else if (key.return && devices.length > 0) {
+        onDeviceSelect(devices[selectedIndex]);
+      } else if (key.escape || (input === 'q' || input === 'Q')) {
+        onExit();
+      } else if (input === '\u0003') { // Ctrl+C
+        onExit();
+      }
+    } else {
+      // Connected/Connecting/Error Screen Controls
+      if (key.escape || (input === 'q' || input === 'Q')) {
+        onExit();
+      } else if ((input === 'b' || input === 'B') && onBatteryRead) {
+        onBatteryRead();
+      } else if (input === '\u0003') { // Ctrl+C
+        onExit();
+      }
     }
-    // Ignore all other input to prevent screen clearing
   });
 
   // Reset selection when devices change
@@ -55,33 +80,59 @@ export function App({
     }
   }, [devices.length, selectedIndex]);
 
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'device-list':
+        return (
+          <DeviceList 
+            devices={devices} 
+            selectedIndex={selectedIndex} 
+            onDeviceSelect={onDeviceSelect} 
+          />
+        );
+      case 'connecting':
+      case 'connected':
+      case 'error':
+        return (
+          <ScaleInfo 
+            deviceName={selectedDevice?.advertisement.localName || '(no name)'}
+            deviceAddress={selectedDevice?.address || '(no address)'}
+            isConnected={isConnected}
+            lastWeight={lastWeight}
+            batteryLevel={batteryLevel}
+            connectionStatus={connectionStatus}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderHelpText = () => {
+    switch (currentScreen) {
+      case 'device-list':
+        return '↑↓ Select • Enter Connect • Q Exit';
+      case 'connecting':
+        return 'Connecting... • Q Cancel';
+      case 'connected':
+        return 'B Battery • Ctrl-C Disconnect • Q Exit';
+      case 'error':
+        return 'Q Exit • Try selecting another device';
+      default:
+        return '';
+    }
+  };
+
   return (
     <Box flexDirection="column" padding={1}>
       <Box>
         <Text color="cyan" bold>⚖️ Gourmetmiles Smart Scale BLE Client</Text>
       </Box>
       
-      {connectionStatus === 'disconnected' && !selectedDevice ? (
-        <DeviceList 
-          devices={devices} 
-          selectedIndex={selectedIndex} 
-          onDeviceSelect={onDeviceSelect} 
-        />
-      ) : (
-        <ScaleInfo 
-          deviceName={selectedDevice?.advertisement.localName || '(no name)'}
-          deviceAddress={selectedDevice?.address || '(no address)'}
-          isConnected={isConnected}
-          lastWeight={lastWeight}
-          batteryLevel={batteryLevel}
-          connectionStatus={connectionStatus}
-        />
-      )}
+      {renderScreen()}
       
       <Box>
-        <Text color="gray">
-          {connectionStatus === 'disconnected' && !selectedDevice ? '↑↓ Select • Enter Connect • Q Exit' : 'B Battery • Ctrl-C Disconnect'}
-        </Text>
+        <Text color="gray">{renderHelpText()}</Text>
       </Box>
     </Box>
   );
