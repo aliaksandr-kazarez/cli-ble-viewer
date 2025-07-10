@@ -1,0 +1,5 @@
+{
+  "clearScreen": true,
+  "watch": true,
+  "ignore": ["node_modules", "dist"]
+} 

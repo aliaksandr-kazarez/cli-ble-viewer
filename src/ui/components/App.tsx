@@ -42,6 +42,8 @@ export function App({
       onExit();
     } else if ((input === 'b' || input === 'B') && onBatteryRead) {
       onBatteryRead();
+    } else if (input === '\u0003') { // Ctrl+C
+      onExit();
     }
     // Ignore all other input to prevent screen clearing
   });

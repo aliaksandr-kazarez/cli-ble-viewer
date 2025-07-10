@@ -10,7 +10,7 @@ export interface InkUIState {
   isConnected: boolean;
   lastWeight?: ScaleWeightReading;
   batteryLevel?: number;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error'; 
 }
 
 function InkApp() {
@@ -77,13 +77,9 @@ export function createInkUI() {
       return; // Prevent multiple renders
     }
     hasStarted = true;
-    
     render(React.createElement(InkApp), {
-      // Ensure proper terminal handling
       stdout: process.stdout,
-      stdin: process.stdin,
-      exitOnCtrlC: false, // We handle this ourselves
-      patchConsole: false, // Don't patch console to avoid conflicts
+      stdin: process.stdin
     });
   }
 

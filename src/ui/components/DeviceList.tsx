@@ -81,10 +81,12 @@ export function DeviceList({ devices, selectedIndex, onDeviceSelect }: DeviceLis
     </Box>
   );
 
+  // Fix: Use dashes and pipes to match the header exactly
   const renderSeparator = () => (
     <Box>
       <Text color="gray">
-        {'  '}{'─'.repeat(nameWidth)}┼{'─'.repeat(addressWidth)}┼{'─'.repeat(servicesWidth)}┼{'─'.repeat(mfgWidth)}┼{'─'.repeat(txWidth)}
+        {'  '}
+        {`${'-'.repeat(nameWidth)} | ${'-'.repeat(addressWidth)} | ${'-'.repeat(servicesWidth)} | ${'-'.repeat(mfgWidth)} | ${'-'.repeat(txWidth)}`}
       </Text>
     </Box>
   );
