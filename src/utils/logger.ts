@@ -48,7 +48,7 @@ export function createLogger(outputStream: Writable) {
 export async function createFileStream(filename: string): Promise<Writable> {
   // Handle both relative and absolute paths
   let filePath: string;
-  
+
   if (filename.includes('/') || filename.includes('\\')) {
     // If filename contains path separators, treat it as a full path
     filePath = filename;
@@ -69,7 +69,7 @@ export async function createFileStream(filename: string): Promise<Writable> {
     }
     filePath = join(logsDir, filename);
   }
-  
+
   return createWriteStream(filePath, { flags: 'a' }); // 'a' for append mode
 }
 
@@ -91,25 +91,18 @@ export const nullLogger = createLogger(createNullStream());
 export let logger = nullLogger;
 
 // Function to switch logger output
-export function setLoggerOutput(output: 'file' | 'null', filename?: string): void {
-  switch (output) {
-    case 'file':
-      // Create a temporary null logger while we set up the file logger
-      logger = nullLogger;
-      
-      const targetFilename = filename || 'app.log';
-      createFileStream(targetFilename).then(stream => {
-        logger = createLogger(stream);
-        // Log that we've switched to file logging
-        logger.info('Switched to file logging', { file: targetFilename });
-      }).catch(error => {
-        console.error('Failed to create file logger:', error);
-        // Keep using null logger if file creation fails
-        logger = nullLogger;
-      });
-      break;
-    case 'null':
-      logger = nullLogger;
-      break;
+export async function setLoggerOutput(filename: string | null): Promise<void> {
+  logger = nullLogger;
+
+  if (filename === null) {
+    return;
+  }
+
+  try {
+    const stream = await createFileStream(filename);
+    logger = createLogger(stream);
+    logger.info('Switched to file logging', { file: filename });
+  } catch (error) {
+    console.error('Failed to create file logger:', error);
   }
 } 
