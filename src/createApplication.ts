@@ -4,15 +4,18 @@ import { createUIService } from './services/createUIService.js';
 import { NobleDevice } from './types/ble.js';
 import { logger } from './utils/logger.js';
 
-export function createApplication(): { halt: () => Promise<void> } {
+export interface Application {
+  halt: () => Promise<void>;
+}
+
+export async function createApplication(): Promise<Application> {
   // create services
-  const bluetoothService = createBluetoothService();
-  const scaleConnection = createScaleConnection();
+  const bluetoothService = await createBluetoothService();
+  // const scaleConnection = await createScaleConnection();
 
   // create UI Service and pass all the services as argument there. 
-  const inkUI = createUIService({
+  const inkUI = await createUIService({
     bluetoothService,
-    scaleConnection,
   });
   
   let isConnecting = false;

@@ -4,16 +4,7 @@ import { NobleDevice } from '../types/ble.js';
 import { ScaleWeightReading } from '../scales/scaleConnectionService.js';
 import { logger } from '../utils/logger.js';
 
-export interface InkUIState {
-  devices: NobleDevice[];
-  selectedDevice?: NobleDevice;
-  isConnected: boolean;
-  lastWeight?: ScaleWeightReading;
-  batteryLevel?: number;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error'; 
-}
-
-export function InkApp() {
+export function Application() {
   const [state, setState] = useState<InkUIState>({
     devices: [],
     isConnected: false,

@@ -5,12 +5,12 @@ import { logger } from '../utils/logger.js';
 import { getManufacturerId } from '../utils/manufacturer.js';
 
 export interface BluetoothService {
-  waitForReady: () => Promise<void>;
   startScanning: (onDeviceUpdate: (devices: NobleDevice[]) => void) => Promise<void>;
   stopScanning: () => void;
 }
 
-export function createBluetoothService(): BluetoothService {
+export async function createBluetoothService(): Promise<BluetoothService> {
+  
   let isScanning = false;
   let currentUpdateHandler: ((devices: NobleDevice[]) => void) | undefined;
   let discoveredDevices: NobleDevice[] = [];

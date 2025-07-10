@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { createApplication } from './createApplication.js';
 import { logger, setLoggerOutput } from './utils/logger.js';
 import { parseArgs } from './utils/args.js';
 
@@ -37,7 +36,6 @@ try {
     }
   
     const app = await createApplication();
-    console.info("Application started");
 
     process.on('SIGINT', () => {
       app.halt();
