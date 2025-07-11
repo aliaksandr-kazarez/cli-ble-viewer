@@ -5,6 +5,7 @@ import { getManufacturerId } from '../../utils/manufacturer.js';
 import EventEmitter from 'events';
 
 export type DiscoveredDevice = {
+  id: string;
   peripheral: Peripheral;
   lastSeen: number;
   firstSeen: number;
@@ -71,6 +72,7 @@ export async function createBluetooth(): Promise<Bluetooth> {
     } else {
       // For new devices, create a DiscoveredDevice by picking only the fields we need
       const newDevice: DiscoveredDevice = {
+        id: deviceId,
         peripheral: peripheral,
         lastSeen: now,
         firstSeen: now
@@ -90,7 +92,7 @@ export async function createBluetooth(): Promise<Bluetooth> {
     }
     
     // Remove devices not seen in the last 5 seconds
-    const cutoff = now - 10000;
+    const cutoff = now - 5000;
     const beforePrune = discoveredDevices.length;
     discoveredDevices = discoveredDevices.filter(d => d.lastSeen !== undefined && d.lastSeen! >= cutoff);
     const afterPrune = discoveredDevices.length;

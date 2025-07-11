@@ -2,9 +2,8 @@ import { Box, Text, useInput } from 'ink';
 import { useRouter } from '../Router';
 import { DiscoveredDevice } from '../../services/bluetooth/bluetooth';
 import { getManufacturerName, logger } from '../../utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Characteristic, Peripheral, Service } from '@abandonware/noble';
-import { ScaleWeightReading } from '../../services/scaleConnectionService';
 
 const getStatusColor = (status: Peripheral['state']) => {
   switch (status) {
@@ -36,7 +35,7 @@ function useDeviceInfo({ device }: { device: DiscoveredDevice }) {
     async function connect() {
       try {
         setState('connecting');
-        logger.info('Connecting to device', { device: device.peripheral.uuid });
+        logger.info('Connecting to device', { device: device.id });
         await device.peripheral.connectAsync();
         setState('connected');
         const discoveredData = await device.peripheral.discoverAllServicesAndCharacteristicsAsync();
@@ -60,7 +59,7 @@ function useDeviceInfo({ device }: { device: DiscoveredDevice }) {
     info: {
       name: device.peripheral.advertisement.localName,
       address: device.peripheral.address,
-      udid: device.peripheral.uuid,
+      udid: device.id,
       advertisements: {
         services: device.peripheral.advertisement.serviceUuids,
         manufacturerName: getManufacturerName(device.peripheral.advertisement.manufacturerData),
@@ -220,6 +219,13 @@ function ReadCharacteristicValue({ characteristic }: { characteristic: Character
     return () => clearInterval(interval);
   }, [characteristic]);
   return <Text color="white" bold>📖 {value} - {new Date().toISOString()}</Text>
+}
+
+interface ScaleWeightReading {
+  grams: number;
+  kg: number;
+  raw: Buffer;
+  timestamp: Date;
 }
 
 function convertWeightData(data: Buffer): ScaleWeightReading {

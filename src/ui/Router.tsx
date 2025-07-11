@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, JSX, useCallback, useContext, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { DeviceList } from './components/DeviceList';
 import { DeviceInfo } from './components/DeviceInfo';
@@ -86,7 +86,7 @@ const getCircularReplacer = () => {
   };
 };
 
-function Connecting() {
+function Connecting(): JSX.Element {
   const { navigateTo, params } = useRouter();
   const { device } = params;
 
@@ -102,6 +102,8 @@ function Connecting() {
   return <Text>{JSON.stringify(device, getCircularReplacer(), 2)}</Text>;
 
 }
+
+Connecting.helpText = 'Connecting to device...';
 
 const Error = Connecting;
 

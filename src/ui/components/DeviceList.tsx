@@ -1,10 +1,11 @@
 import { Box, Text, useInput } from 'ink';
 import { getManufacturerName } from '../../utils/manufacturer.js';
-import { useCallback, useMemo, useState } from 'react';
+import { JSX, useCallback, useMemo, useState } from 'react';
 import { useBluetooth } from '../hooks/useBluetooth.js';
 import { useRouter } from '../Router.js';
 import { logger } from '../../utils/logger.js';
 import { DiscoveredDevice } from '../../services/bluetooth/bluetooth.js';
+import { Peripheral } from '@abandonware/noble';
 
 const ELLIPSIS = '\u2026';
 
@@ -15,37 +16,115 @@ interface DevicePresentation {
   services: string[];
   manufacturer: string;
   txPower: number;
+  seen: boolean;
 }
 
 function peripheralToDevice(device: DiscoveredDevice): DevicePresentation {
   return {
-    id: device.peripheral.uuid,
+    id: device.id,
     name: device.peripheral.advertisement.localName || '(no name)',
-    address: device.peripheral.uuid || '(no address)',
+    address: device.peripheral.address || '(no address)',
     services: device.peripheral.advertisement.serviceUuids || [],
     manufacturer: getManufacturerName(device.peripheral.advertisement.manufacturerData),
-    txPower: device.peripheral.advertisement.txPowerLevel || 0
+    txPower: device.peripheral.advertisement.txPowerLevel || 0,
+    seen: seenDevicesSet.has(device.id)
   }
 }
 
-export function DeviceList() {
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
-  const [shouldFilterNoName, setShouldFilterNoName] = useState<boolean>(true);
+const seenDevicesSet = new Set<string>();
 
-  const { devices } = useBluetooth();
+// filter devices that have manufacturer data starting with bytes 0F FF AC A0 
+function hasTargetManufacturerPrefix(peripheral: Peripheral, targetPrefix: string = '0FFFACA0'): boolean {
+
+  const targetPrefixBuffer = Buffer.from(targetPrefix.replace(/\s+/g,'').toLowerCase(), 'hex');
+  // logger.info('Checking manufacturer prefix', { targetPrefixBuffer, manufacturerData: peripheral.advertisement.manufacturerData });
+  // Compare the first bytes of manufacturerData with targetPrefix
+  for (let i = 0; i < targetPrefixBuffer.length; i++) {
+    if (peripheral.advertisement.manufacturerData?.[i] !== targetPrefixBuffer[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// filter based on advertised service FFB0 after you connect; others use FFE0
+function hasAdvertisedService(peripheral: Peripheral, targetServices: string[]): boolean {
+  targetServices = targetServices.map(service => service.toLowerCase());
+  return targetServices.some(service => peripheral.advertisement.serviceUuids?.includes(service));
+}
+
+
+// function that connects to device and looks for andverised services passed in as arguments
+async function connectToDeviceAndLookForServices(device: DiscoveredDevice, lookForServices: string[]): Promise<void> {
+  lookForServices = lookForServices.map(service => service.toLowerCase());
+  const peripheral = device.peripheral;
+  await peripheral.connectAsync();
+  const services = await peripheral.discoverAllServicesAndCharacteristicsAsync();
+  const service = services.services?.find(service => lookForServices.includes(service.uuid));
+  if (service) {
+    logger.info('Discovered service', { service: service.uuid, device: device.id });
+    const characteristic = service.characteristics?.find(characteristic => characteristic.properties.includes('read'));
+    if (characteristic) {
+      const value = await characteristic.readAsync();
+      logger.info('Read characteristic', { value, device: device.id });
+    }
+  }
+  await peripheral.disconnectAsync();
+}
+
+export function DeviceList(): JSX.Element {
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [shouldFilterNoName, setShouldFilterNoName] = useState<boolean>(false);
+  const [shouldFilterSeenDevices, setShouldFilterSeenDevices] = useState<boolean>(true);
+
+  const { devices: bluetoothDevices } = useBluetooth({
+    onNewDevice: async (device: DiscoveredDevice) => {
+      try {
+        // await connectToDeviceAndLookForServices(device, ['FFB0', 'FFE0', 'fff0']);
+      } catch (error) {
+        logger.error('Error connecting to device', { error, device: device.id });
+      }
+      // 
+      // seenDevicesSet.add(device.id);
+    }
+  });
   const { navigateTo } = useRouter();
   const onDeviceSelect = useCallback((device: DiscoveredDevice) => {
+    seenDevicesSet.add(device.id);
     navigateTo('connecting', { device });
   }, []);
 
   const filteredDevices = useMemo(() => {
-    return devices.filter(device => {
-      if (shouldFilterNoName) {
-        return device.peripheral.advertisement.localName && device.peripheral.advertisement.localName.length > 0;
+    return bluetoothDevices.filter(device => {
+      if (
+        hasTargetManufacturerPrefix(device.peripheral) 
+        // && hasAdvertisedService(device.peripheral, ['FFB0', 'FFE0'])
+        || true
+      ) {
+        return true;
       }
+      return false;
+
+      // if (shouldFilterSeenDevices && seenDevicesSet.has(device.id)) {
+      //   return false;
+      // }
+      // if (shouldFilterNoName) {
+      //   return device.peripheral.advertisement.localName && device.peripheral.advertisement.localName.length > 0;
+      // }
+
+      // if (device.peripheral.advertisement.serviceUuids?.includes('FFB0')) {
+      //   return true;
+      // }
+      // return false;
+  
       return true;
     });
-  }, [devices, shouldFilterNoName]);
+
+  }, [bluetoothDevices, shouldFilterNoName]);
+
+  const devices = useMemo(() => {
+    return filteredDevices.map(peripheralToDevice);
+  }, [filteredDevices]);
 
   useInput((input, key) => {
     if (key.upArrow && selectedIndex > 0) {
@@ -62,10 +141,12 @@ export function DeviceList() {
       onDeviceSelect(selectedDevice);
     } else if (input === 'n') {
       setShouldFilterNoName(!shouldFilterNoName);
+    } else if (input === 'h') {
+      setShouldFilterSeenDevices(!shouldFilterSeenDevices);
     }
   });
 
-  if (filteredDevices.length === 0) {
+  if (devices.length === 0) {
     return (
       <Box flexDirection="column">
         <Text color="yellow">🔍 Scanning for devices{ELLIPSIS}</Text>
@@ -75,15 +156,14 @@ export function DeviceList() {
   }
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Text color="cyan" bold>📱 Available Devices ({devices.length})</Text>
       {/* <Box marginTop={1} flexDirection="column"> */}
       <DeviceListHeader config={columnConfigs} />
 
-      {filteredDevices
-        .map(peripheralToDevice)
+      {devices
         .map((deivce, index) => (
-          <Text color={index === selectedIndex ? 'green' : 'white'} key={deivce.id}>
+          <Text color={getDeviceColor(deivce, index === selectedIndex)} key={deivce.id}>
             {index === selectedIndex ? <Text>▶ </Text> : <Text>  </Text>}
             {columnConfigs.map((column) => (
               <Text key={column.name}>{formatString(deivce[column.property].toString(), column.width)}</Text>
@@ -92,6 +172,16 @@ export function DeviceList() {
         ))}
     </Box>
   );
+}
+
+function getDeviceColor(device: DevicePresentation, selected: boolean) {
+  if (device.seen) {
+    return 'blue';
+  } else if (selected) {
+    return 'green';
+  } else {
+    return 'white';
+  }
 }
 
 const formatString = (text: string, width: number, align: 'left' | 'right' = 'left'): string => {
