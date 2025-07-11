@@ -1,1 +1,1 @@
-export { createBluetoothService } from './bluetoothService.js'; 
+export { createBluetooth } from './bluetooth/bluetooth.js'; 

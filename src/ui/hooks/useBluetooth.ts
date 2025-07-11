@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { logger } from "../../utils";
 import { useBluetoothService } from "../ServiceProvider";
-import { DiscoveredDevice } from "../../services/bluetoothService";
+import { DiscoveredDevice } from "../../services/bluetooth/bluetooth";
 
 export function useBluetooth() {
     const service = useBluetoothService();
@@ -10,8 +9,7 @@ export function useBluetooth() {
     useEffect(() => {
         async function start() {
             await service.start();
-            service.on('devices-updated', (devices) => {
-                logger.info('Devices updated', { devices });
+            service.on('devices-updated', (devices: DiscoveredDevice[]) => {
                 setDevices(devices);
             });
         }

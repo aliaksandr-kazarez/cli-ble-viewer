@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useBluetooth } from '../hooks/useBluetooth.js';
 import { useRouter } from '../Router.js';
 import { logger } from '../../utils/logger.js';
-import { DiscoveredDevice } from '../../services/bluetoothService.js';
+import { DiscoveredDevice } from '../../services/bluetooth/bluetooth.js';
 
 const ELLIPSIS = '\u2026';
 
@@ -30,31 +30,13 @@ function peripheralToDevice(device: DiscoveredDevice): DevicePresentation {
 
 export function DeviceList() {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
-  const [shouldFilterNoName, setShouldFilterNoName] = useState<boolean>(false);
+  const [shouldFilterNoName, setShouldFilterNoName] = useState<boolean>(true);
 
   const { devices } = useBluetooth();
   const { navigateTo } = useRouter();
   const onDeviceSelect = useCallback((device: DiscoveredDevice) => {
     navigateTo('connecting', { device });
   }, []);
-
-  useInput((input, key) => {
-    if (key.upArrow && selectedIndex > 0) {
-      setSelectedIndex(selectedIndex - 1);
-    } else if (key.downArrow && selectedIndex < devices.length - 1) {
-      setSelectedIndex(selectedIndex + 1);
-    } else if (key.return && devices.length > 0) {
-      const selectedDevice = devices[selectedIndex];
-      logger.debug('Enter pressed, selecting device', {
-        deviceName: selectedDevice.peripheral.advertisement.localName || '(no name)',
-        deviceAddress: selectedDevice.peripheral.address || '(no address)',
-        deviceIndex: selectedIndex
-      });
-      onDeviceSelect(devices[selectedIndex]);
-    } else if (input === 'n') {
-      setShouldFilterNoName(!shouldFilterNoName);
-    }
-  });
 
   const filteredDevices = useMemo(() => {
     return devices.filter(device => {
@@ -64,6 +46,24 @@ export function DeviceList() {
       return true;
     });
   }, [devices, shouldFilterNoName]);
+
+  useInput((input, key) => {
+    if (key.upArrow && selectedIndex > 0) {
+      setSelectedIndex(selectedIndex - 1);
+    } else if (key.downArrow && selectedIndex < filteredDevices.length - 1) {
+      setSelectedIndex(selectedIndex + 1);
+    } else if (key.return && filteredDevices.length > 0) {
+      const selectedDevice = filteredDevices[selectedIndex];
+      logger.debug('Enter pressed, selecting device', {
+        deviceName: selectedDevice.peripheral?.advertisement.localName || '(no name)',
+        deviceAddress: selectedDevice.peripheral.address || '(no address)',
+        deviceIndex: selectedIndex
+      });
+      onDeviceSelect(selectedDevice);
+    } else if (input === 'n') {
+      setShouldFilterNoName(!shouldFilterNoName);
+    }
+  });
 
   if (filteredDevices.length === 0) {
     return (

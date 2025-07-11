@@ -1,11 +1,9 @@
 // implement react context provider for services
 import React, { createContext, useContext } from "react";
-import { BluetoothService } from "../services/bluetoothService";
-import { ScaleConnectionService } from "../services/scaleConnectionService";
+import { Bluetooth } from "../services/bluetooth/bluetooth";
 
 export interface ServiceProvider {
-  bluetoothService: BluetoothService;
-  scaleConnectionService: ScaleConnectionService;
+  bluetooth: Bluetooth;
 }
 
 export const ServiceContext = createContext<ServiceProvider | null>(null);
@@ -15,18 +13,10 @@ export function ServiceProvider({ children, service }: { children: React.ReactNo
 }
 
 // also implement hook to use services
-export function useBluetoothService(): BluetoothService {
-  const service = useContext(ServiceContext);
-  if (!service) {
+export function useBluetoothService(): Bluetooth {
+  const { bluetooth } = useContext(ServiceContext) ?? {};
+  if (!bluetooth) {
     throw new Error("Bluetooth service not found");
   }
-  return service.bluetoothService;
-}
-
-export function useScaleConnectionService(): ScaleConnectionService {
-  const service = useContext(ServiceContext);
-  if (!service) {
-    throw new Error("Scale connection service not found");
-  }
-  return service.scaleConnectionService;
+  return bluetooth;
 }

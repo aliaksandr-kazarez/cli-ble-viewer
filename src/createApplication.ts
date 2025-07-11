@@ -1,4 +1,4 @@
-import { createBluetoothService } from './services/bluetoothService.js';
+import { createBluetooth } from './services/bluetooth/bluetooth.js';
 import { render } from 'ink';
 import React from 'react';
 import { Application } from './ui/index.js';
@@ -10,17 +10,16 @@ export interface Application {
 
 export async function createApplication(): Promise<Application> {
   // create services
-  const bluetoothService = await createBluetoothService();
-  const scaleConnectionService = await createScaleConnectionService();
+  const bluetooth = await createBluetooth();
 
-  render(React.createElement(Application, { bluetoothService, scaleConnectionService }), {
+  render(React.createElement(Application, { bluetooth }), {
     stdout: process.stdout,
     stdin: process.stdin
   });
 
   return {
     halt: async () => {
-      await bluetoothService.stop();
+      await bluetooth.stop();
     },
   };
 } 

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { DeviceList } from './components/DeviceList';
-import { ScaleInfo } from './components/ScaleInfo';
+import { DeviceInfo } from './components/DeviceInfo';
 
 export type Screens = 'device-list' | 'connecting' | 'connected' | 'error';
 
@@ -65,9 +65,9 @@ function renderScreen(screen: Screens): React.ReactNode {
     case 'device-list':
       return <DeviceList />;
     case 'connecting':
-      return <ScaleInfo />;
+      return <DeviceInfo />;
     case 'connected':
-      return <ScaleInfo />;
+      return <DeviceInfo />;
     case 'error':
       return <Error />;
   }

@@ -1,17 +1,15 @@
 import { Router } from './Router.js';
-import { BluetoothService } from '../services/bluetoothService.js';
+import { Bluetooth } from '../services/bluetooth/bluetooth.js';
 import { ServiceProvider } from './ServiceProvider.js';
-import { ScaleConnectionService } from '../services/scaleConnectionService.js';
 
 export interface ApplicationProps {
-  bluetoothService: BluetoothService;
-  scaleConnectionService: ScaleConnectionService;
+  bluetooth: Bluetooth;
 }
 
-export function Application({ bluetoothService, scaleConnectionService }: ApplicationProps) {
+export function Application({ bluetooth }: ApplicationProps) {
   // Expose updateState function globally
   return (
-    <ServiceProvider service={{ bluetoothService, scaleConnectionService }}>
+    <ServiceProvider service={{ bluetooth }}>
       <Router />
     </ServiceProvider>
   );

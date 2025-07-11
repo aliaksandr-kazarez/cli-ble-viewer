@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import noble, { Peripheral } from '@abandonware/noble';
-import { logger } from '../utils/logger.js';
-import { getManufacturerId } from '../utils/manufacturer.js';
+import { logger } from '../../utils/logger.js';
+import { getManufacturerId } from '../../utils/manufacturer.js';
 import EventEmitter from 'events';
 
 export type DiscoveredDevice = {
@@ -10,12 +10,12 @@ export type DiscoveredDevice = {
   firstSeen: number;
 };
 
-export type BluetoothServiceEventMap = {
+export type BluetoothEventMap = {
   'device-discovered': [device: DiscoveredDevice];
   'devices-updated': [devices: DiscoveredDevice[]];
 };
 
-export interface BluetoothService extends EventEmitter<BluetoothServiceEventMap> {
+export interface Bluetooth extends EventEmitter<BluetoothEventMap> {
   /**
    * Start scanning for BLE devices.
    * @returns A promise that resolves when the service is started.
@@ -24,8 +24,8 @@ export interface BluetoothService extends EventEmitter<BluetoothServiceEventMap>
   stop: () => void;
 }
 
-export async function createBluetoothService(): Promise<BluetoothService> {
-  const eventEmitter = new EventEmitter() as BluetoothService;
+export async function createBluetooth(): Promise<Bluetooth> {
+  const eventEmitter = new EventEmitter() as Bluetooth;
   
   let isScanning = false;
   let discoveredDevices: DiscoveredDevice[] = [];
